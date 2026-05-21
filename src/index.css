@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+
+@theme {
+  /* Creamos un color personalizado llamado 'brand' (marca) con tonos verdes */
+  --color-brand-light: #f0fdf4;   /* Un verde menta muy clarito para fondos secundarios */
+  --color-brand-primary: #10b981; /* El verde esmeralda principal para botones */
+  --color-brand-dark: #064e3b;    /* Un verde bosque oscuro para textos importantes o headers */
+}
