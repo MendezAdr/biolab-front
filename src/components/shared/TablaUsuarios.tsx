@@ -8,6 +8,7 @@ export function TablaUsuarios({ }) {
     { id: 1, nombre: 'Charles John', cedula: 'V-15.421.054', correo: 'charles.john@biolab.com', rol: 'Administrador', activo: true, ultimoAcceso: 'Hoy, 04:12 PM' },
     { id: 2, nombre: 'Mariana Pérez', cedula: 'V-16.789.012', correo: 'mariana.p@biolab.com', rol: 'Bioanalista', activo: true, ultimoAcceso: 'Ayer, 08:30 AM' },
     { id: 3, nombre: 'Carlos Mendoza', cedula: 'V-17.345.678', correo: 'carlos.m@biolab.com', rol: 'Recepcionista', activo: false, ultimoAcceso: '12/05/2026' },
+    
   ]);
 
   const[modalAbierto, setModalAbierto] = React.useState(false);
