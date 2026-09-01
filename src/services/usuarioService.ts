@@ -1,4 +1,4 @@
-import { apiClient } from '../ApiClient';
+import { apiClient } from '../config/ApiClient';
 import type { UsuarioCreateDTO } from '../types/DTOs/UsuarioCreateDTO'; // Ajusta la ruta a tu estructura
 import type { UsuarioUpdateDTO } from '../types/DTOs/UsuarioUpdateDTO';
 

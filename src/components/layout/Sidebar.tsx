@@ -47,9 +47,9 @@ export function Sidebar({ abierta, setAbierta }: SidebarProps) {
             <span>Usuarios</span>
           </NavLink>
 
-          <NavLink to="/facturas" className={vincularClaseActiva}>
+          <NavLink to="/ordenes" className={vincularClaseActiva}>
             <span>💳</span>
-            <span>Facturas</span>
+            <span>Ordenes</span>
           </NavLink>
 
           <NavLink to="/examenes" className={vincularClaseActiva}>

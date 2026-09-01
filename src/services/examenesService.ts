@@ -1,4 +1,4 @@
-import { apiClient } from '../ApiClient';
+import { apiClient } from '../config/ApiClient';
 import type { ExamenCreateDTO } from '../types/DTOs/ExamenCreateDTO'; 
 import type { ExamenUpdateDTO } from '../types/DTOs/ExamenUpdateDTO'; 
 

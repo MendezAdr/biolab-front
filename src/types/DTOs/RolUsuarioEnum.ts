@@ -18,6 +18,8 @@ export const RolUsuario = {
         VerReportesAntiguos       : 128,
         //-------------------------------
         GestionarPresupuestos     : 256,
+        //-------------------------------
+        Ninguno                   : 512,
 
 
 }as const;

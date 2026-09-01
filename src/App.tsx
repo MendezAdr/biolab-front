@@ -1,12 +1,12 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-
 import { PacientesPage } from './components/pages/PacientesPage';
 import { ExamenesPage } from './components/pages/ExamenesPage';
 import { UsuariosPage } from './components/pages/UsuariosPage';
 import { PresupuestosPage } from './components/pages/PresupuestosPage';
+import { PagosPage } from './components/pages/PagosPage';
 import { ImpresionesPage } from './components/pages/ImpresionesPage';
-import { FacturasPage } from './components/pages/FacturasPage';
+import { HistoricoFacturasPage } from './components/pages/HistoricoFacturasPage';
 import { HomePage } from './components/pages/HomePages';
 
 function App() {
@@ -20,10 +20,11 @@ function App() {
           {/* Definición de las rutas del sistema */}
           <Route path="/pacientes" element={<PacientesPage />} />
           <Route path="/examenes" element={<ExamenesPage />} />
-          <Route path="/facturas" element={<FacturasPage />} />
+          <Route path="/historial-facturas" element={<HistoricoFacturasPage />} />
           <Route path="/impresiones" element={<ImpresionesPage />} />
           <Route path="/presupuestos" element={<PresupuestosPage />} />
           <Route path="/usuarios" element={<UsuariosPage />} />
+          <Route path="/pagos" element={<PagosPage/>} />
         </Routes>
       
     </BrowserRouter>

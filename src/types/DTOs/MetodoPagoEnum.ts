@@ -7,4 +7,3 @@ export const MetodoPago = {
     Transferencia: 6,
 } as const;
 
-export type MetodoPago = typeof MetodoPago[keyof typeof MetodoPago];

@@ -85,7 +85,7 @@ export function PanelBienvenida({ usuarioNombre, metricas }: PanelBienvenidaProp
           </button>
 
           <button 
-            onClick={() => navigate('/facturas')}
+            onClick={() => navigate('/ordenes')}
             className="group p-4 text-left border border-slate-100 rounded-xl hover:border-emerald-200 hover:bg-emerald-50/40 transition-all duration-200"
           >
             <span className="block text-2xl mb-2">🧾</span>

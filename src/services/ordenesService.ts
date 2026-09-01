@@ -1,4 +1,4 @@
-import { apiClient } from '../ApiClient'; 
+import { apiClient } from '../config/ApiClient'; 
 import type { OrdenCreateDTO } from '../types/DTOs/OrdenCreateDTO'; 
 import type { OrdenUpdateDTO } from '../types/DTOs/OrdenUpdateDTO';
 import { EstadoPago } from '../types/DTOs/EstadoPagoEnum'; 

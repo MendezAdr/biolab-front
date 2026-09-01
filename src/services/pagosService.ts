@@ -1,4 +1,4 @@
-import { apiClient } from '../ApiClient';
+import { apiClient } from '../config/ApiClient';
 import type { PagoUpdateDTO } from '../types/DTOs/PagoUpdateDTO'; // Importado según tu estructura[cite: 32]
 import type { PagoStandaloneCreateDTO } from '../types/DTOs/PagoStandaloneCreateDTO'; 
 

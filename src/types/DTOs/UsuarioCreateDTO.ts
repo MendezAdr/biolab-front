@@ -1,4 +1,3 @@
-import type {Rol} from "./RolUsuarioEnum";
 
 export interface UsuarioCreateDTO {
     Username   : string;
@@ -6,5 +5,5 @@ export interface UsuarioCreateDTO {
     Apellido   : string;
     Cedula     : string;
     Contrasena : string;
-    RolId      : Rol;
+    RolId      : number;
 }
