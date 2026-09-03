@@ -1,41 +1,101 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { ordenesService } from '../../services/ordenesService'; // Importamos el servicio de órdenes
 import type { PagoStandaloneCreateDTO } from '../../types/DTOs/PagoStandaloneCreateDTO';
 import type { PagoUpdateDTO } from '../../types/DTOs/PagoUpdateDTO';
-import { MetodoPago } from '../../types/DTOs/MetodoPagoEnum';
+// Asegúrate de tener importado tu modelo de Orden
+import type { Orden } from '../../types/OrdenesModel'; 
 
 interface ModalRegistroPagoProps {
   isOpen: boolean;               
   onClose: () => void;           
   onGuardar: (datos: PagoStandaloneCreateDTO | PagoUpdateDTO) => void; 
-  pagoExistente: any | null; // Si viene lleno, estamos editando. Si es null, estamos creando.
+  pagoExistente: any | null; 
 }
 
 export function ModalRegistroPago({ isOpen, onClose, onGuardar, pagoExistente }: ModalRegistroPagoProps) {
   
+  // Estados del Formulario
   const [ordenId, setOrdenId] = useState<number | ''>('');
   const [monto, setMonto] = useState<string>('');
-  const [metodo, setMetodo] = useState<number>(1); // Asumiendo 1 = Punto, 2 = PagoMovil, etc.
+  const [metodo, setMetodo] = useState<number>(1); 
   const [referencia, setReferencia] = useState('');
 
+  // Nuevos estados para el buscador inteligente
+  const [busquedaOrden, setBusquedaOrden] = useState('');
+  const [ordenesActivasBD, setOrdenesActivasBD] = useState<Orden[]>([]);
+  const [cargandoOrdenes, setCargandoOrdenes] = useState(false);
+
   const esModoEdicion = !!pagoExistente;
+  const currentUserId = 1; // ID del administrador
 
   useEffect(() => {
     if (isOpen) {
       if (esModoEdicion) {
-        setOrdenId(pagoExistente.ordenId);
-        setMonto(pagoExistente.monto.toString());
-        setMetodo(pagoExistente.metodo);
-        setReferencia(pagoExistente.referencia || '');
+        setOrdenId(pagoExistente.OrdenId || pagoExistente.ordenId);
+        setBusquedaOrden(`ORD-${pagoExistente.OrdenId || pagoExistente.ordenId}`); // Mostrar visualmente qué orden es
+        setMonto(pagoExistente.Monto.toString());
+        setMetodo(pagoExistente.Metodo);
+        setReferencia(pagoExistente.Referencia || '');
       } else {
+        // Limpiamos al crear uno nuevo
         setOrdenId('');
+        setBusquedaOrden('');
         setMonto('');
         setMetodo(1);
         setReferencia('');
+        
+        // Cargar las órdenes disponibles solo si es un abono nuevo
+        cargarOrdenesConDeuda();
       }
     }
   }, [isOpen, pagoExistente, esModoEdicion]);
 
+  // Función para obtener las órdenes y filtrar las que están pagadas
+  const cargarOrdenesConDeuda = async () => {
+    try {
+      setCargandoOrdenes(true);
+      const respuesta = await ordenesService.getAll(currentUserId);
+      
+      // Filtramos en memoria: Asumiendo que EstadoPago 1 es "Pagado" y 4 "Cancelado". 
+      // Nos quedamos con Pendiente (2) y Parcial (3).
+      // Nota: Ajusta la lectura de la propiedad según la capitalización real de tu API (Estado o EstadoPago)
+      const ordenesPendientes = respuesta.filter((o: any) => 
+        o.EstadoPago === 2 || o.EstadoPago === 3 || o.Estado === 2 || o.Estado === 3
+      );
+      
+      setOrdenesActivasBD(ordenesPendientes);
+    } catch (err) {
+      console.error("Error cargando órdenes para el buscador", err);
+    } finally {
+      setCargandoOrdenes(false);
+    }
+  };
+
+  // Filtrado instantáneo en memoria para el autocompletado
+  const ordenesSugeridas = useMemo(() => {
+    if (busquedaOrden.length < 1 || ordenId !== '') return []; // No sugerir si ya se seleccionó una
+    
+    const busquedaLower = busquedaOrden.toLowerCase();
+    return ordenesActivasBD.filter(o => {
+      const idString = String(o.Id);
+      const facturaString = String(o.NumeroFactura).toLowerCase();
+      return idString.includes(busquedaLower) || facturaString.includes(busquedaLower);
+    });
+  }, [busquedaOrden, ordenesActivasBD, ordenId]);
+
   if (!isOpen) return null;
+
+  const seleccionarOrden = (orden: Orden) => {
+    setOrdenId(orden.Id);
+    setBusquedaOrden(`ORD-${orden.Id} (${orden.NumeroFactura})`);
+    
+    // Opcional: Podrías autocompletar el monto con el saldo restante si tu backend te lo envía
+  };
+
+  const handleCambioBusqueda = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setBusquedaOrden(e.target.value);
+    setOrdenId(''); // Si el usuario vuelve a teclear, borramos el ID oficial para forzarlo a seleccionar de nuevo
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault(); 
@@ -45,8 +105,7 @@ export function ModalRegistroPago({ isOpen, onClose, onGuardar, pagoExistente }:
       return;
     }
 
-    // Validación que replica la que tienes en tu IValidatableObject en C#
-    const esPagoDigital = metodo === 2 || metodo === 6; // Ej: 2 = Pago Movil, 6 = Transferencia
+    const esPagoDigital = metodo === 2 || metodo === 6 || metodo === 3; 
     if (esPagoDigital && !referencia.trim()) {
       alert("Los pagos digitales requieren una referencia obligatoria.");
       return;
@@ -54,9 +113,9 @@ export function ModalRegistroPago({ isOpen, onClose, onGuardar, pagoExistente }:
 
     if (esModoEdicion) {
       const pagoCorregido: PagoUpdateDTO = {
-        Id: pagoExistente.id,
+        Id: pagoExistente.Id || pagoExistente.id,
         Monto: Number(monto),
-        Metodo: MetodoPago,
+        Metodo: metodo, // CORREGIDO: Antes decía PagoMetodo
         Referencia: referencia
       };
       onGuardar(pagoCorregido);
@@ -64,7 +123,7 @@ export function ModalRegistroPago({ isOpen, onClose, onGuardar, pagoExistente }:
       const nuevoAbono: PagoStandaloneCreateDTO = {
         OrdenId: Number(ordenId),
         Monto: Number(monto),
-        Metodo: MetodoPago,
+        Metodo: metodo, // CORREGIDO: Antes decía PagoMetodo
         Referencia: referencia
       };
       onGuardar(nuevoAbono);
@@ -75,7 +134,7 @@ export function ModalRegistroPago({ isOpen, onClose, onGuardar, pagoExistente }:
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
       
-      <div className="relative bg-white rounded-xl shadow-xl border border-slate-200 max-w-md w-full p-6">
+      <div className="relative bg-white rounded-xl shadow-xl border border-slate-200 max-w-md w-full p-6 overflow-visible">
         
         <div className="flex justify-between items-center mb-6 border-b pb-3">
           <div>
@@ -89,20 +148,39 @@ export function ModalRegistroPago({ isOpen, onClose, onGuardar, pagoExistente }:
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 font-bold p-1">✕</button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 relative">
           
-          <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">ID de la Orden *</label>
+          {/* BUSCADOR DE ÓRDENES */}
+          <div className="relative">
+            <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Buscar Orden Pendiente *</label>
             <input 
-              type="number" 
-              value={ordenId} 
-              onChange={(e) => setOrdenId(Number(e.target.value))} 
-              // Bloqueamos el input si estamos editando, para evitar que pasen el dinero a otra factura por accidente
+              type="text" 
+              value={busquedaOrden} 
+              onChange={handleCambioBusqueda} 
               disabled={esModoEdicion} 
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 disabled:bg-slate-100 disabled:text-slate-400" 
-              placeholder="Ej. 12"
+              className={`w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-slate-50 disabled:bg-slate-100 disabled:text-slate-400 focus:outline-none focus:border-emerald-500 ${ordenId !== '' ? 'border-emerald-500 bg-emerald-50/30' : ''}`} 
+              placeholder={cargandoOrdenes ? "Cargando órdenes..." : "Buscar por ID (Ej. 12) o N° Factura..."}
             />
-            {esModoEdicion && <span className="text-[10px] text-slate-400">El ID de la orden no puede modificarse tras registrarse.</span>}
+            {esModoEdicion && <span className="text-[10px] text-slate-400">El destino del pago no puede modificarse.</span>}
+
+            {/* Menú Desplegable del Autocompletado */}
+            {!esModoEdicion && ordenesSugeridas.length > 0 && (
+              <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                {ordenesSugeridas.map((orden) => (
+                  <div 
+                    key={orden.Id} 
+                    onClick={() => seleccionarOrden(orden)}
+                    className="p-3 hover:bg-slate-50 cursor-pointer border-b border-slate-100 flex justify-between items-center"
+                  >
+                    <div>
+                      <span className="font-bold text-emerald-700 text-sm">ORD-{orden.Id}</span>
+                      <span className="text-xs text-slate-500 ml-2 font-mono">{orden.NumeroFactura}</span>
+                    </div>
+                    <span className="text-xs font-semibold text-rose-500">Deuda: ${orden.TotalDivisa}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -113,7 +191,7 @@ export function ModalRegistroPago({ isOpen, onClose, onGuardar, pagoExistente }:
                 step="0.01" 
                 value={monto} 
                 onChange={(e) => setMonto(e.target.value)} 
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50" 
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-slate-50" 
                 placeholder="0.00"
               />
             </div>
@@ -122,7 +200,7 @@ export function ModalRegistroPago({ isOpen, onClose, onGuardar, pagoExistente }:
               <select 
                 value={metodo} 
                 onChange={(e) => setMetodo(Number(e.target.value))} 
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 focus:outline-none"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-slate-50 focus:outline-none"
               >
                 <option value={1}>Punto de Venta</option>
                 <option value={2}>Pago Móvil</option>
@@ -140,7 +218,7 @@ export function ModalRegistroPago({ isOpen, onClose, onGuardar, pagoExistente }:
               type="text" 
               value={referencia} 
               onChange={(e) => setReferencia(e.target.value)} 
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50" 
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-slate-50" 
               placeholder="Requerido para pagos digitales..."
             />
           </div>

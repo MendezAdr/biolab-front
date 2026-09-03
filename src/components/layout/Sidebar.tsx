@@ -37,6 +37,31 @@ export function Sidebar({ abierta, setAbierta }: SidebarProps) {
 
         {/* MENÚ DE OPCIONES */}
         <nav className="space-y-1.5">
+          <NavLink to="/nueva-orden" className={vincularClaseActiva}>
+            <span>📋</span>
+            <span>Órdenes</span>
+          </NavLink>
+
+          <NavLink to="/historial-facturas" className={vincularClaseActiva}>
+            <span>💳</span>
+            <span>Facturas</span>
+          </NavLink>
+
+          <NavLink to="/presupuestos" className={vincularClaseActiva}>
+            <span>📊</span>
+            <span>Presupuestos</span>
+          </NavLink>
+
+          <NavLink to="/pagos" className={vincularClaseActiva}>
+            <span>💰</span>
+            <span>Pagos</span>
+          </NavLink>
+
+          <NavLink to="/examenes" className={vincularClaseActiva}>
+            <span>🔬</span>
+            <span>Exámenes</span>
+          </NavLink>
+
           <NavLink to="/pacientes" className={vincularClaseActiva}>
             <span>📋</span>
             <span>Pacientes</span>
@@ -46,22 +71,7 @@ export function Sidebar({ abierta, setAbierta }: SidebarProps) {
             <span>👥</span>
             <span>Usuarios</span>
           </NavLink>
-
-          <NavLink to="/ordenes" className={vincularClaseActiva}>
-            <span>💳</span>
-            <span>Ordenes</span>
-          </NavLink>
-
-          <NavLink to="/examenes" className={vincularClaseActiva}>
-            <span>🔬</span>
-            <span>Exámenes</span>
-          </NavLink>
-
-          <NavLink to="/presupuestos" className={vincularClaseActiva}>
-            <span>📊</span>
-            <span>Presupuestos</span>
-          </NavLink>
-
+        
           <NavLink to="/impresiones" className={vincularClaseActiva}>
             <span>🖨️</span>
             <span>Impresiones</span>

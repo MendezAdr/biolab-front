@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ordenesService } from '../../services/ordenesService'; 
 import { ModalDetallesFactura } from './ModalDetallesFactura';
+import type { Orden } from '../../types/OrdenesModel';
 
 export function HistoricoFacturas() {
-  const [listaFacturas, setListaFacturas] = useState<any[]>([]);
+  const [listaFacturas, setListaFacturas] = useState<Orden[]>([]);
   const [cargando, setCargando] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -11,6 +13,7 @@ export function HistoricoFacturas() {
   const [facturaSeleccionadaId, setFacturaSeleccionadaId] = useState<number | null>(null);
 
   const currentUserId = 1; 
+  const navigate = useNavigate();
 
   const cargarHistorial = async () => {
     try {
@@ -30,10 +33,18 @@ export function HistoricoFacturas() {
     cargarHistorial();
   }, []);
 
+  // FUNCIÓN BLINDADA PARA FECHAS
+  const formatearFechaSegura = (fechaString: any) => {
+    if (!fechaString) return 'Fecha no disponible';
+    const fechaObj = new Date(fechaString);
+    // Verificamos si el objeto fecha es inválido (isNaN)
+    return isNaN(fechaObj.getTime()) ? 'Fecha inválida' : fechaObj.toLocaleDateString();
+  };
+
   // Función para manejar el botón de "Nueva Factura"
   const navegarANuevaFactura = () => {
     // Aquí a futuro usarás React Router (ej. navigate('/nueva-factura')) o cambiarás el estado de la vista principal
-    alert("Navegando al módulo de 'Creación de Nueva Factura' (Pantalla completa en desarrollo).");
+    navigate('/nueva-orden');
   };
 
   if (cargando) {
@@ -92,14 +103,14 @@ export function HistoricoFacturas() {
                 </tr>
               ) : (
                 listaFacturas.map((factura) => (
-                  <tr key={factura.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-4 font-mono font-semibold text-emerald-700">{factura.numeroFactura}</td>
-                    <td className="p-4 text-slate-500">{new Date(factura.fecha).toLocaleDateString()}</td>
-                    <td className="p-4 text-slate-600">{factura.pacienteId}</td>
-                    <td className="p-4 font-bold text-slate-800 text-right">${factura.totalDivisa}</td>
+                  <tr key={factura.Id} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-4 font-mono font-semibold text-emerald-700">{factura.NumeroFactura}</td>
+                    <td className="p-4 text-slate-500">{formatearFechaSegura(factura.FechaCreacion)}</td>
+                    <td className="p-4 text-slate-600">{factura.PacienteId}</td>
+                    <td className="p-4 font-bold text-slate-800 text-right">${factura.TotalDivisa}</td>
                     <td className="p-4 text-center">
                       <button 
-                        onClick={() => setFacturaSeleccionadaId(factura.id)}
+                        onClick={() => setFacturaSeleccionadaId(factura.Id)}
                         className="text-sky-600 hover:text-sky-800 font-medium text-xs bg-sky-50 hover:bg-sky-100 px-3 py-1.5 rounded transition-colors"
                       >
                         Ver Detalles

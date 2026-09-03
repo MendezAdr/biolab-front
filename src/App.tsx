@@ -8,6 +8,7 @@ import { PagosPage } from './components/pages/PagosPage';
 import { ImpresionesPage } from './components/pages/ImpresionesPage';
 import { HistoricoFacturasPage } from './components/pages/HistoricoFacturasPage';
 import { HomePage } from './components/pages/HomePages';
+import { NuevaOrdenPage } from './components/pages/NuevaOrdenPage';
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
           <Route path="/presupuestos" element={<PresupuestosPage />} />
           <Route path="/usuarios" element={<UsuariosPage />} />
           <Route path="/pagos" element={<PagosPage/>} />
+          <Route path="/nueva-orden" element={<NuevaOrdenPage />} />
         </Routes>
       
     </BrowserRouter>

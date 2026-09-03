@@ -3,15 +3,16 @@ import { pagosService } from '../../services/pagosService';
 import { ModalRegistroPago } from './ModalRegistroPagos';
 import type { PagoStandaloneCreateDTO } from '../../types/DTOs/PagoStandaloneCreateDTO';
 import type { PagoUpdateDTO } from '../../types/DTOs/PagoUpdateDTO';
+import { PagoMetodo, type Pago } from '../../types/PagoModel';
 
 export function PanelPagos() {
-  const [listaPagos, setListaPagos] = useState<any[]>([]);
+  const [listaPagos, setListaPagos] = useState<Pago[]>([]);
   const [cargando, setCargando] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   
   // Estados para el Modal
   const [modalAbierto, setModalAbierto] = useState(false);
-  const [pagoAEditar, setPagoAEditar] = useState<any | null>(null);
+  const [pagoAEditar, setPagoAEditar] = useState<Pago | null>(null);
 
   const currentUserId = 1; // Simulación de ID del Administrador
 
@@ -40,7 +41,7 @@ export function PanelPagos() {
     setModalAbierto(true);
   };
 
-  const abrirModalEditar = (pago: any) => {
+  const abrirModalEditar = (pago: Pago) => {
     setPagoAEditar(pago);
     setModalAbierto(true);
   };
@@ -61,7 +62,7 @@ export function PanelPagos() {
     try {
       if (pagoAEditar) {
         // Es una corrección (Update)
-        await pagosService.update(pagoAEditar.id, datos as PagoUpdateDTO, currentUserId);
+        await pagosService.update(pagoAEditar.Id, datos as PagoUpdateDTO, currentUserId);
         alert("Pago corregido exitosamente.");
       } else {
         // Es un abono nuevo (Create)
@@ -122,28 +123,32 @@ export function PanelPagos() {
                   </td>
                 </tr>
               ) : (
-                listaPagos.map((pago) => (
-                  <tr key={pago.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-4 font-mono text-slate-500">#{pago.id}</td>
-                    <td className="p-4 font-semibold text-emerald-700">ORD-{pago.ordenId}</td>
-                    <td className="p-4">
-                      {/* Aquí asumo que el backend manda el número del método, deberás mapearlo a texto */}
-                      <span className="bg-sky-50 text-sky-700 px-2 py-1 rounded text-xs font-medium border border-sky-100">
-                        Método {pago.metodo}
-                      </span>
-                    </td>
-                    <td className="p-4 text-slate-500">{pago.referencia || 'N/A'}</td>
-                    <td className="p-4 font-bold text-slate-800 text-right">${pago.monto}</td>
-                    <td className="p-4 text-center space-x-2">
-                      <button onClick={() => abrirModalEditar(pago)} className="text-amber-600 hover:text-amber-800 font-medium text-xs bg-amber-50 px-2 py-1 rounded">
-                        Corregir
-                      </button>
-                      <button onClick={() => anularPago(pago.id)} className="text-rose-600 hover:text-rose-800 font-medium text-xs bg-rose-50 px-2 py-1 rounded">
-                        Anular
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                listaPagos.map((pago) => {
+                  // TRADUCCIÓN DEL MÉTODO DE PAGO
+                  const nombreMetodo = PagoMetodo.find(m => m.id === pago.Metodo)?.metodo || 'Desconocido';
+
+                  return (
+                    <tr key={pago.Id} className="hover:bg-slate-50 transition-colors">
+                      <td className="p-4 font-mono text-slate-500">#{pago.Id}</td>
+                      <td className="p-4 font-semibold text-emerald-700">ORD-{pago.OrdenId}</td>
+                      <td className="p-4">
+                        <span className="bg-sky-50 text-sky-700 px-2 py-1 rounded text-xs font-medium border border-sky-100">
+                          {nombreMetodo}
+                        </span>
+                      </td>
+                      <td className="p-4 text-slate-500">{pago.Referencia || 'N/A'}</td>
+                      <td className="p-4 font-bold text-slate-800 text-right">${pago.Monto}</td>
+                      <td className="p-4 text-center space-x-2">
+                        <button onClick={() => abrirModalEditar(pago)} className="text-amber-600 hover:text-amber-800 font-medium text-xs bg-amber-50 px-2 py-1 rounded">
+                          Corregir
+                        </button>
+                        <button onClick={() => anularPago(pago.Id)} className="text-rose-600 hover:text-rose-800 font-medium text-xs bg-rose-50 px-2 py-1 rounded">
+                          Anular
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

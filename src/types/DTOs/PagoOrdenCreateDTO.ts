@@ -1,8 +1,7 @@
-import {MetodoPago} from "./MetodoPagoEnum";
 
 export interface PagoOrdenCreateDTO{
     Monto      : number;
-    Metodo     : MetodoPago;
+    Metodo     : number;
     Referencia : string;
     
 }
