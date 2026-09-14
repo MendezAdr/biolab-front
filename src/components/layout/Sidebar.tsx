@@ -31,7 +31,7 @@ export function Sidebar({ abierta, setAbierta }: SidebarProps) {
       <div>
         {/* LOGO O NOMBRE DEL SISTEMA */}
         <div className="mb-8 px-2 bg-white rounded-lg py-3 text-center relative">
-          <h1 className="text-xl font-bold text-emerald-700 tracking-wider">BIOLAB</h1>
+          <h1 className="text-xl font-bold text-emerald-700 tracking-wider">RIV_CARR</h1>
           <span className="text-xs text-slate-600">Gestión de Laboratorio</span>
         </div>
 
@@ -70,6 +70,11 @@ export function Sidebar({ abierta, setAbierta }: SidebarProps) {
           <NavLink to="/usuarios" className={vincularClaseActiva}>
             <span>👥</span>
             <span>Usuarios</span>
+          </NavLink>
+
+          <NavLink to="/roles" className={vincularClaseActiva}>
+            <span>⚙️</span>
+            <span>Roles y permisos</span>
           </NavLink>
         
           <NavLink to="/impresiones" className={vincularClaseActiva}>

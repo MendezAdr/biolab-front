@@ -85,11 +85,11 @@ const styles = StyleSheet.create({
 
 interface ReporteCajaPDFProps {
   reporte: ReporteCaja;
-  usuarioId: number;
+  usuarioNombre: string;
 }
 
 // 2. EL DOCUMENTO: Usamos las etiquetas especiales de la librería
-export function ReporteCajaPDF({ reporte, usuarioId }: ReporteCajaPDFProps) {
+export function ReporteCajaPDF({ reporte, usuarioNombre }: ReporteCajaPDFProps) {
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -100,7 +100,7 @@ export function ReporteCajaPDF({ reporte, usuarioId }: ReporteCajaPDFProps) {
           <Image src="/assets/img/logo-biolab.png" style={styles.logo} />
           
           <View style={styles.titleContainer}>
-            <Text style={styles.title}>LABORATORIO BIOLAB</Text>
+            <Text style={styles.title}>LABORATORIO RIV_CARR</Text>
             <Text style={styles.subtitle}>Cierre y Totalización de Caja</Text>
           </View>
         </View>
@@ -113,10 +113,10 @@ export function ReporteCajaPDF({ reporte, usuarioId }: ReporteCajaPDFProps) {
           </View>
           <View style={{ textAlign: 'right' }}>
             <Text style={styles.textNormal}><Text style={styles.textBold}>Generado:</Text> {new Date().toLocaleDateString()}</Text>
-            <Text style={styles.textNormal}><Text style={styles.textBold}>Usuario:</Text> ID {usuarioId}</Text>
+            <Text style={styles.textNormal}><Text style={styles.textBold}>Usuario:</Text> {usuarioNombre}</Text>
           </View>
         </View>
-
+    
         {/* TABLA DE DESGLOSE */}
         <Text style={{ fontSize: 12, fontWeight: 'bold', marginTop: 10 }}>Desglose por Método de Pago</Text>
         <View style={styles.table}>

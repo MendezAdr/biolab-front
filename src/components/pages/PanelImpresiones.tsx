@@ -1,12 +1,39 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { ordenesService } from '../../services/ordenesService';
 import { pacienteService } from '../../services/pacienteService'; // Importamos el servicio de pacientes
 import { impresionesService, type ReporteCaja, type ReportePacientes, type ReporteMorosos } from '../../services/ImpresionesService';
+import { PDFViewer, PDFDownloadLink, Document, Page } from '@react-pdf/renderer';
+import { ReporteCajaPDF } from '../pdf/ReporteCajaPDF';
+import { ReporteMorososPDF } from '../pdf/ReporteMorososPDF';
+import { PresupuestoPDF } from '../pdf/PresupuestoPDF';
+import { ReportePacientesPDF } from '../pdf/ReportePacientesPDF';
+import { excelExportService } from '../../services/ExcelExportService';
 
 type TipoReporte = 'presupuesto' | 'cierre_diario' | 'cierre_fechas' | 'pacientes' | 'morosos' | null;
 
 export function PanelImpresiones() {
+  //helper para determinar tipo de impresion:
+  const obtenerDocumentoPDF = () => {
+    if (reporteCaja && !datosPresupuesto) return <ReporteCajaPDF reporte={reporteCaja} usuarioNombre={currentUser.nombre} />;
+    if (datosPresupuesto) return <PresupuestoPDF datos={datosPresupuesto} usuarioNombre={currentUser.nombre} />;
+    if (reportePacientes) return <ReportePacientesPDF reporte={reportePacientes} usuarioNombre={currentUser.nombre} />;
+    if (reporteMorosos) return <ReporteMorososPDF reporte={reporteMorosos} usuarioNombre={currentUser.nombre} />;
+    
+    // Retorno de seguridad (nunca debería llegar aquí)
+    return <Document><Page/></Document>; 
+  };
+
+  // helper de excel
+  const manejarExportacionExcel = () => {
+    if (reporteCaja) {
+      excelExportService.exportarCaja(reporteCaja);
+    } else if (reporteMorosos) {
+      // excelExportService.exportarMorosos(reporteMorosos);
+    }
+  };
+  
+
   const location = useLocation();
   const paqueteExterno = location.state; 
   const currentUserId = 1; 
@@ -14,6 +41,9 @@ export function PanelImpresiones() {
   const [tipoReporteSeleccionado, setTipoReporteSeleccionado] = useState<TipoReporte>(
     paqueteExterno?.tipoDocumento === 'presupuesto' ? 'presupuesto' : 'cierre_diario'
   );
+
+
+  const vistaPreviaRef = useRef<HTMLDivElement>(null);
 
   const [fechaInicio, setFechaInicio] = useState('');
   const [fechaFin, setFechaFin] = useState('');
@@ -24,6 +54,17 @@ export function PanelImpresiones() {
   const [reportePacientes, setReportePacientes] = useState<ReportePacientes | null>(null);
   const [reporteMorosos, setReporteMorosos] = useState<ReporteMorosos | null>(null);
   const datosPresupuesto = paqueteExterno?.tipoDocumento === 'presupuesto' ? paqueteExterno.datos : null;
+  
+                  /* =======================================================*/
+                  /*                    Inyeccion de usuario                */
+                  /* =======================================================*/
+  const currentUser = {
+    id: 1,
+    nombre: "Adrián Méndez",
+    rol: "Administrador"
+  };
+
+  const puedeExportarExcel = !!reporteCaja || !!reporteMorosos;
 
   useEffect(() => {
     if (datosPresupuesto) {
@@ -70,6 +111,10 @@ export function PanelImpresiones() {
           pacienteService.getAll()
         ]);
         setReporteMorosos(impresionesService.generarReporteMorosos(ordenesBrutas, pacientesBrutos));
+        
+        setTimeout(() => {
+        vistaPreviaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 200);
       }
     } catch (err) {
       alert("Error al generar el reporte.");
@@ -114,7 +159,8 @@ export function PanelImpresiones() {
           <div>
             <h2 className="text-xl font-bold text-slate-800 mb-2">Configuración del Documento</h2>
             <p className="text-sm text-slate-500 mb-6">Ajuste los parámetros antes de generar la vista previa.</p>
-
+            
+            
             {/* Renderizado Condicional de Controles */}
             {(tipoReporteSeleccionado === 'cierre_fechas' || tipoReporteSeleccionado === 'cierre_diario') && (
               <div className="flex gap-4 items-end bg-slate-50 p-4 rounded-lg border border-slate-100 mb-6">
@@ -144,26 +190,37 @@ export function PanelImpresiones() {
 
           <div className="flex justify-between border-t border-slate-100 pt-4">
             <button 
-              onClick={() => alert("Módulo de exportación a Excel (.xlsx) en construcción.")}
-              disabled={!hayReporteGenerado || datosPresupuesto !== null}
+              onClick={manejarExportacionExcel}
+              disabled={!puedeExportarExcel || datosPresupuesto !== null}
               className="bg-emerald-100 hover:bg-emerald-200 text-emerald-800 disabled:opacity-50 px-6 py-2 rounded-lg text-sm font-bold transition-colors"
             >
               📊 Exportar a Excel
             </button>
 
-            <div className="space-x-3">
+            <div className="space-x-3 flex items-center">
               {!datosPresupuesto && (
                 <button onClick={manejarGenerarReporte} disabled={cargando} className="bg-slate-800 hover:bg-slate-700 text-white px-6 py-2 rounded-lg text-sm font-bold transition-colors">
                   {cargando ? 'Cargando...' : '👁️ Cargar Vista Previa'}
                 </button>
               )}
-              <button 
-                onClick={() => window.print()}
-                disabled={!hayReporteGenerado}
-                className="bg-sky-600 hover:bg-sky-700 disabled:bg-slate-300 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-md transition-colors"
-              >
-                🖨️ Imprimir / Guardar PDF
-              </button>
+              
+              {/* === NUEVO BOTÓN CONECTADO AL PDF === */}
+              {hayReporteGenerado ? (
+                <PDFDownloadLink
+                  document={obtenerDocumentoPDF()}
+                  fileName={`RIV_CARR_${tipoReporteSeleccionado}_${new Date().getTime()}.pdf`}
+                  className="bg-sky-600 hover:bg-sky-700 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-md transition-colors flex items-center justify-center h-[38px]"
+                >
+                  {({ loading }) => (loading ? '⏳ Preparando...' : '📥 Descargar PDF')}
+                </PDFDownloadLink>
+              ) : (
+                <button 
+                  disabled
+                  className="bg-sky-600 disabled:bg-slate-300 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-md transition-colors h-[38px]"
+                >
+                  📥 Descargar PDF
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -174,129 +231,37 @@ export function PanelImpresiones() {
       {/* ========================================== */}
       
       {hayReporteGenerado && (
-        <div className="mt-8 mb-20">
-          <p className="text-center text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 print:hidden">--- Vista Previa del Documento ---</p>
+        <div ref={vistaPreviaRef} className="mt-8 mb-20">
+          <p className="text-center text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 print:hidden">
+            --- Vista Previa del Documento ---
+          </p>
           
-          {/* El contenedor que simula la hoja A4 */}
-          <div className="bg-white shadow-2xl max-w-[21cm] min-h-[29.7cm] mx-auto p-12 border border-slate-200 print:shadow-none print:max-w-none print:border-none print:m-0 print:p-0 text-black">
+          {/* ELIMINAMOS EL "FALSO A4" Y LE DIMOS UNA ALTURA FIJA AL CONTENEDOR */}
+          <div className="h-[800px] w-full">
             
-            {/* ENCABEZADO UNIVERSAL */}
-            <div className="text-center mb-8 border-b-2 border-slate-800 pb-4">
-              <h1 className="text-2xl font-bold uppercase tracking-widest">Laboratorio BioLab</h1>
-              {tipoReporteSeleccionado === 'presupuesto' && <p className="text-lg mt-1 font-semibold">Presupuesto de Servicios</p>}
-              {(tipoReporteSeleccionado === 'cierre_diario' || tipoReporteSeleccionado === 'cierre_fechas') && <p className="text-lg mt-1 font-semibold">Cierre y Totalización de Caja</p>}
-              {tipoReporteSeleccionado === 'pacientes' && <p className="text-lg mt-1 font-semibold">Directorio de Pacientes</p>}
-              {tipoReporteSeleccionado === 'morosos' && <p className="text-lg mt-1 font-semibold">Reporte de Órdenes Pendientes y Morosidad</p>}
-            </div>
-
-            {/* CONTENIDO ESPECÍFICO DEL REPORTE */}
-
-            {/* 1. PRESUPUESTO */}
-            {datosPresupuesto && (
-               <div className="space-y-6">
-                <div className="flex justify-between text-sm">
-                  <p><span className="font-bold">Cliente:</span> {datosPresupuesto.cliente}</p>
-                  <p><span className="font-bold">Tasa BCV:</span> Bs. {datosPresupuesto.tasaBcv.toFixed(2)}</p>
-                </div>
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-100 border-b border-slate-300">
-                      <th className="p-2 font-semibold text-sm">Examen</th>
-                      <th className="p-2 font-semibold text-sm text-right">Costo (USD)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {datosPresupuesto.examenes.map((ex: any) => (
-                      <tr key={ex.Id}><td className="p-2 text-sm">{ex.NombreExamen}</td><td className="p-2 text-sm text-right">${ex.CostoEnDivisa.toFixed(2)}</td></tr>
-                    ))}
-                  </tbody>
-                </table>
-                <div className="text-right space-y-1 mt-4">
-                  <p className="font-bold text-lg">Total USD: ${datosPresupuesto.totalDivisa.toFixed(2)}</p>
-                  <p className="text-sm font-semibold">Total VES: Bs. {datosPresupuesto.totalBolivares.toFixed(2)}</p>
-                </div>
-              </div>
-            )}
-
-            {/* 2. REPORTE DE CAJA */}
             {reporteCaja && !datosPresupuesto && (
-              <div className="space-y-6">
-                <div className="flex justify-between text-sm">
-                  <p><span className="font-bold">Periodo:</span> {reporteCaja.rango.inicio} al {reporteCaja.rango.fin}</p>
-                  <p><span className="font-bold">Órdenes Procesadas:</span> {reporteCaja.totalOrdenes}</p>
-                </div>
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-100 border-b border-slate-300">
-                      <th className="p-2 font-semibold text-sm">Método de Pago</th>
-                      <th className="p-2 font-semibold text-sm text-right">Monto (USD)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {reporteCaja.desglosePorMetodo.map((m) => (
-                      <tr key={m.metodoId}><td className="p-2 text-sm">{m.nombre}</td><td className="p-2 text-sm text-right">${m.montoTotal.toFixed(2)}</td></tr>
-                    ))}
-                  </tbody>
-                </table>
-                <div className="text-right space-y-1 mt-4">
-                  <p className="font-bold text-lg">INGRESOS USD: ${reporteCaja.totalFacturadoDivisa.toFixed(2)}</p>
-                  <p className="text-sm font-semibold">Facturado VES (Aprox): Bs. {reporteCaja.totalFacturadoBs.toFixed(2)}</p>
-                </div>
-              </div>
+              <PDFViewer width="100%" height="100%" className="rounded-xl shadow-2xl border border-slate-300">
+                <ReporteCajaPDF reporte={reporteCaja} usuarioNombre={currentUser.nombre} />
+              </PDFViewer>
             )}
 
-            {/* 3. DIRECTORIO DE PACIENTES */}
+            {datosPresupuesto && (
+              <PDFViewer width="100%" height="100%" className="rounded-xl shadow-2xl border border-slate-300">
+                <PresupuestoPDF datos={datosPresupuesto} usuarioNombre={currentUser.nombre} />
+              </PDFViewer>
+            )}
+
             {reportePacientes && (
-              <div className="space-y-6">
-                <p className="text-sm mb-4"><span className="font-bold">Total Registrados:</span> {reportePacientes.totalPacientes}</p>
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-100 border-b border-slate-300 text-xs">
-                      <th className="p-2 font-semibold">Nombre Completo</th>
-                      <th className="p-2 font-semibold">Cédula</th>
-                      <th className="p-2 font-semibold">Teléfono</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {reportePacientes.pacientes.map((p) => (
-                      <tr key={p.Id}><td className="p-2 text-sm">{p.Nombre} {p.Apellido}</td><td className="p-2 text-sm">{p.Cedula}</td><td className="p-2 text-sm">{p.Telefono}</td></tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <PDFViewer width="100%" height="100%" className="rounded-xl shadow-2xl border border-slate-300">
+                <ReportePacientesPDF reporte={reportePacientes} usuarioNombre={currentUser.nombre} />
+              </PDFViewer>
             )}
 
-            {/* 4. REPORTE DE MOROSOS */}
             {reporteMorosos && (
-              <div className="space-y-6">
-                <p className="text-sm mb-4"><span className="font-bold">Deuda Global en la Calle:</span> <span className="text-rose-600 font-bold">${reporteMorosos.totalDeudaDivisa.toFixed(2)}</span></p>
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-100 border-b border-slate-300 text-xs">
-                      <th className="p-2 font-semibold">Factura</th>
-                      <th className="p-2 font-semibold">Paciente</th>
-                      <th className="p-2 font-semibold">Fecha Emisión</th>
-                      <th className="p-2 font-semibold text-right">Deuda (USD)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {reporteMorosos.ordenes.map((o) => (
-                      <tr key={o.ordenId}>
-                        <td className="p-2 text-sm font-mono text-slate-500">{o.numeroFactura}</td>
-                        <td className="p-2 text-sm font-semibold">{o.pacienteNombre} <br/><span className="text-xs font-normal text-slate-400">CI: {o.pacienteCedula}</span></td>
-                        <td className="p-2 text-sm">{o.fechaEmision.toLocaleDateString()}</td>
-                        <td className="p-2 text-sm text-right font-bold text-rose-600">${o.deudaPendiente.toFixed(2)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <PDFViewer width="100%" height="100%" className="rounded-xl shadow-2xl border border-slate-300">
+                <ReporteMorososPDF reporte={reporteMorosos} usuarioNombre={currentUser.nombre} />
+              </PDFViewer>
             )}
-
-            {/* PIE DE PÁGINA UNIVERSAL */}
-            <div className="mt-16 text-center text-xs text-slate-400 border-t border-slate-200 pt-4">
-              <p>Documento generado por el sistema automatizado BioLab el {new Date().toLocaleString()}</p>
-            </div>
 
           </div>
         </div>

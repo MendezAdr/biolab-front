@@ -9,6 +9,7 @@ import { ImpresionesPage } from './components/pages/ImpresionesPage';
 import { HistoricoFacturasPage } from './components/pages/HistoricoFacturasPage';
 import { HomePage } from './components/pages/HomePages';
 import { NuevaOrdenPage } from './components/pages/NuevaOrdenPage';
+import { RolesPage } from './components/pages/RolesPage';
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
           <Route path="/usuarios" element={<UsuariosPage />} />
           <Route path="/pagos" element={<PagosPage/>} />
           <Route path="/nueva-orden" element={<NuevaOrdenPage />} />
+          <Route path="/roles" element={<RolesPage />} />
         </Routes>
       
     </BrowserRouter>

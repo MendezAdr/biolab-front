@@ -1,4 +1,4 @@
-export const RolUsuario = {
+/*export const RolUsuario = {
         Todos                     : 0,
         //------------------------------
         CrearOrdenesYDetalles     : 1,
@@ -32,3 +32,4 @@ export type Rol = {
         Permisos : RolUsuario[];
 }
 
+*/

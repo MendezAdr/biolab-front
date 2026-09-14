@@ -11,7 +11,9 @@ export function PanelBienvenida({ usuarioNombre, metricas }: PanelBienvenidaProp
   const navigate = useNavigate();
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 "
+    
+    >
       {/* Mensaje de Bienvenida Principal */}
       <div className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white p-6 rounded-2xl shadow-sm">
         <h1 className="text-2xl font-bold mb-1">¡Hola de nuevo, {usuarioNombre}! 👋</h1>
