@@ -3,7 +3,17 @@ import { rolService } from '../../services/rolService';
 import type { RolCreateDTO, RolUpdateDTO, RolResponseDTO } from '../../types/DTOs/RolDTOS';
 import { ModalRol } from './ModalRoles';
 
+// 1. IMPORTAMOS EL CONTEXTO Y LOS PERMISOS
+import { useAuth } from '../../context/AuthContext';
+import { PERMISOS } from '../../types/AuthTypes';
+
 export function TablaRoles() {
+  // 2. EXTRAEMOS LA SESIÓN ACTUAL
+  const { tienePermiso } = useAuth();
+  
+  // Asignamos la gestión de roles a los administradores de usuarios
+  const puedeGestionarRoles = tienePermiso(PERMISOS.GESTIONAR_USUARIOS);
+
   const [listaRoles, setListaRoles] = useState<RolResponseDTO[]>([]);
   const [cargando, setCargando] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,12 +88,17 @@ export function TablaRoles() {
           <h2 className="text-lg font-semibold text-sky-700">Gestión de Roles y Privilegios</h2>
           <p className="text-sm text-slate-500">Configuración granular de los niveles de acceso al sistema</p>
         </div>
-        <button 
-          onClick={abrirModalCrear}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
-        >
-          + Definir Nuevo Rol
-        </button>
+        
+        {/* BOTÓN PROTEGIDO: Nuevo Rol */}
+        <div className="inline-block" title={!puedeGestionarRoles ? "Solo el administrador puede definir nuevas jerarquías de seguridad." : ""}>
+          <button 
+            onClick={abrirModalCrear}
+            disabled={!puedeGestionarRoles}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm ${!puedeGestionarRoles ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
+          >
+            + Definir Nuevo Rol
+          </button>
+        </div>
       </div>
 
       <div className="overflow-x-auto">
@@ -114,20 +129,28 @@ export function TablaRoles() {
                     </span>
                   </td>
                   <td className="p-4 text-center space-x-2">
-                    <button 
-                      onClick={() => abrirModalEditar(rol)}
-                      className="text-sky-600 hover:text-sky-800 font-medium text-xs bg-sky-50 px-3 py-1.5 rounded transition-colors"
-                    >
-                      Editar
-                    </button>
-                    {/* Opcional: Proteger el ID 1 para que el Admin Global nunca pueda ser borrado por accidente */}
-                    <button 
-                      onClick={() => eliminarRol(rol.Id, rol.RolName)}
-                      disabled={rol.Id === 1}
-                      className="text-rose-600 hover:text-rose-800 disabled:opacity-30 disabled:hover:text-rose-600 font-medium text-xs bg-rose-50 px-3 py-1.5 rounded transition-colors"
-                    >
-                      Eliminar
-                    </button>
+                    
+                    {/* BOTÓN PROTEGIDO: Editar Rol */}
+                    <div className="inline-block" title={!puedeGestionarRoles ? "Acceso denegado. Se requiere nivel de administrador." : ""}>
+                      <button 
+                        onClick={() => abrirModalEditar(rol)}
+                        disabled={!puedeGestionarRoles}
+                        className={`font-medium text-xs px-3 py-1.5 rounded transition-colors ${!puedeGestionarRoles ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-sky-50 text-sky-600 hover:text-sky-800'}`}
+                      >
+                        Editar
+                      </button>
+                    </div>
+
+                    {/* BOTÓN PROTEGIDO: Eliminar Rol (y protegemos siempre el ID 1) */}
+                    <div className="inline-block" title={rol.Id === 1 ? "El rol de Administrador principal no puede ser eliminado." : !puedeGestionarRoles ? "Acceso denegado." : ""}>
+                      <button 
+                        onClick={() => eliminarRol(rol.Id, rol.RolName)}
+                        disabled={rol.Id === 1 || !puedeGestionarRoles}
+                        className={`font-medium text-xs px-3 py-1.5 rounded transition-colors ${(rol.Id === 1 || !puedeGestionarRoles) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-rose-50 text-rose-600 hover:text-rose-800'}`}
+                      >
+                        Eliminar
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))

@@ -36,6 +36,9 @@ const usuariosMockData  = [
 
 
 export const usuariosService = {
+    
+      
+    
     // --------------------------------------------------------
     // MÉTODOS GET
     // --------------------------------------------------------
@@ -143,5 +146,41 @@ export const usuariosService = {
             }
         );
         return response.data;
-    }
-};
+    },
+
+    //login
+
+    login: async (credenciales: { username: string; contrasena: string }) => {
+        if (AppConfig.usarMocks) {
+            console.warn("🔧 MOCK: Simulando Login");
+            return new Promise<any>((resolve, reject) => {
+                setTimeout(() => {
+                    // Simulamos un login exitoso solo si el usuario es "admin"
+                    if (credenciales.username.toLowerCase() === 'admin' && credenciales.contrasena === 'admin123') {
+                        resolve({
+                            Exito: true,
+                            Mensaje: "Autenticación exitosa",
+                            UsuarioInfo: {
+                                Id: 1,
+                                Username: 'admin',
+                                Nombre: 'Adrián',
+                                Apellido: 'Méndez',
+                                RolName: 'Administrador Global',
+                                Permisos: [0, 511] // Permiso total
+                            },
+                            TasaDolar: 36.50,
+                            EstadoTasa: "Tasa del día obtenida"
+                        });
+                    } else {
+                        reject(new Error("Usuario o contraseña incorrectos. (Usa admin / admin123 en modo mock)"));
+                    }
+                }, 800);
+            });
+        }
+        // Petición real al backend
+        const response = await apiClient.post('/usuarios/login', {
+            Username: credenciales.username,
+            Password: credenciales.contrasena
+        });
+        return response.data;
+}};

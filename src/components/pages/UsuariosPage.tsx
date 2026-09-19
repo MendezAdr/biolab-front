@@ -1,7 +1,6 @@
 import React from 'react';
 import { Title } from '../layout/Title';
 import { TablaUsuarios } from '../shared/TablaUsuarios';
-import type { Usuario } from '../../types/usuario';
 import { MainLayout } from '../layout/MainLayout';
 
 export function UsuariosPage() {

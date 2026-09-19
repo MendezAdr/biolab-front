@@ -3,21 +3,28 @@ import type { ExamenCreateDTO } from '../../types/DTOs/ExamenCreateDTO';
 import type { ExamenUpdateDTO } from '../../types/DTOs/ExamenUpdateDTO';
 import type { Examen } from '../../types/ExamenModel';
 
+// 1. IMPORTAMOS EL CONTEXTO Y LOS PERMISOS
+import { useAuth } from '../../context/AuthContext';
+import { PERMISOS } from '../../types/AuthTypes';
+
 interface ModalExamenProps {
   isOpen: boolean;               
   onClose: () => void;           
   onGuardar: (datos: ExamenCreateDTO | ExamenUpdateDTO) => void; 
-  examenExistente: Examen | null; // El cerebro del modal: null = Crear, objeto = Editar
+  examenExistente: Examen | null; 
 }
 
 export function ModalExamen({ isOpen, onClose, onGuardar, examenExistente }: ModalExamenProps) {
+  // 2. VERIFICAMOS PERMISOS DENTRO DEL MODAL
+  const { tienePermiso } = useAuth();
+  const puedeGestionarExamenes = tienePermiso(PERMISOS.GESTIONAR_EXAMENES);
+
   const [nombre, setNombre] = useState('');
   const [costo, setCosto] = useState('');
   const [descripcion, setDescripcion] = useState('');
 
   const esModoEdicion = !!examenExistente;
 
-  // Rellenamos o limpiamos el formulario cada vez que se abre
   useEffect(() => {
     if (isOpen) {
       if (esModoEdicion && examenExistente) {
@@ -114,9 +121,18 @@ export function ModalExamen({ isOpen, onClose, onGuardar, examenExistente }: Mod
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-500 hover:bg-slate-100 rounded-lg">
               Cancelar
             </button>
-            <button type="submit" className={`px-4 py-2 text-sm font-medium text-white rounded-lg shadow-sm transition-colors ${esModoEdicion ? 'bg-sky-600 hover:bg-sky-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
-              {esModoEdicion ? 'Guardar Cambios' : 'Registrar Examen'}
-            </button>
+            
+            {/* BOTÓN PROTEGIDO: Guardar Formulario */}
+            <div className="inline-block" title={!puedeGestionarExamenes ? "No posees los privilegios necesarios para guardar estos cambios." : ""}>
+              <button 
+                type="submit" 
+                disabled={!puedeGestionarExamenes}
+                className={`px-4 py-2 text-sm font-medium text-white rounded-lg shadow-sm transition-colors ${!puedeGestionarExamenes ? 'bg-slate-400 cursor-not-allowed' : esModoEdicion ? 'bg-sky-600 hover:bg-sky-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+              >
+                {esModoEdicion ? 'Guardar Cambios' : 'Registrar Examen'}
+              </button>
+            </div>
+
           </div>
         </form>
       </div>

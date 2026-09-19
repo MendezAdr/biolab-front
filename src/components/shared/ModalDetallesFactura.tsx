@@ -3,6 +3,10 @@ import { ordenesService } from '../../services/ordenesService';
 import type { Orden } from '../../types/OrdenesModel';
 import { PagoMetodo, type Pago } from '../../types/PagoModel';
 
+// 1. IMPORTAMOS EL CONTEXTO Y LOS PERMISOS
+import { useAuth } from '../../context/AuthContext';
+import { PERMISOS } from '../../types/AuthTypes';
+
 interface ModalDetallesFacturaProps {
   ordenId: number | null;
   isOpen: boolean;
@@ -10,20 +14,22 @@ interface ModalDetallesFacturaProps {
 }
 
 export function ModalDetallesFactura({ ordenId, isOpen, onClose }: ModalDetallesFacturaProps) {
+  // 2. VERIFICAMOS PERMISOS DENTRO DEL MODAL
+  const { usuario, tienePermiso } = useAuth();
+  const currentUserId = usuario?.id || 1; 
+
+  const puedeVerReportes = tienePermiso(PERMISOS.VER_REPORTES);
+
   const [ordenDetalle, setOrdenDetalle] = useState<Orden | null>(null);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const currentUserId = 1; // Simulación del ID del usuario activo
-
   useEffect(() => {
-    // Si el modal se abre y tenemos un ID válido, buscamos los detalles en el backend
     if (isOpen && ordenId) {
       const cargarDetalles = async () => {
         try {
           setCargando(true);
           setError(null);
-          // Llamamos a tu endpoint [HttpGet("{id}")]
           const data = await ordenesService.getById(ordenId, currentUserId);
           setOrdenDetalle(data);
         } catch (err) {
@@ -35,13 +41,10 @@ export function ModalDetallesFactura({ ordenId, isOpen, onClose }: ModalDetalles
       };
       cargarDetalles();
     } else {
-      // Limpiamos al cerrar
       setOrdenDetalle(null);
     }
-  }, [isOpen, ordenId]);
+  }, [isOpen, ordenId, currentUserId]);
 
-
-  // FUNCIÓN BLINDADA PARA FECHAS CON HORA
   const formatearFechaYHoraSegura = (fechaString: any) => {
     if (!fechaString) return 'No disponible';
     const fechaObj = new Date(fechaString);
@@ -69,7 +72,6 @@ export function ModalDetallesFactura({ ordenId, isOpen, onClose }: ModalDetalles
         ) : ordenDetalle ? (
           <div className="space-y-6">
             
-            {/* Sección 1: Información General */}
             <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-100">
               <div>
                 <p className="text-xs text-slate-500 uppercase font-semibold">Paciente (ID)</p>
@@ -89,7 +91,6 @@ export function ModalDetallesFactura({ ordenId, isOpen, onClose }: ModalDetalles
               </div>
             </div>
 
-            {/* Sección 2: Lista de Exámenes (Detalles) */}
             <div>
               <h4 className="font-semibold text-slate-700 mb-2 border-b pb-1">Exámenes Solicitados</h4>
               {ordenDetalle.Detalles && ordenDetalle.Detalles.length > 0 ? (
@@ -106,13 +107,11 @@ export function ModalDetallesFactura({ ordenId, isOpen, onClose }: ModalDetalles
               )}
             </div>
 
-            {/* Sección 3: Historial de Pagos */}
             <div>
               <h4 className="font-semibold text-slate-700 mb-2 border-b pb-1">Registro de Pagos</h4>
               {ordenDetalle.Pagos && ordenDetalle.Pagos.length > 0 ? (
                 <ul className="space-y-2">
                   {ordenDetalle.Pagos.map((pago: Pago, index: number) => {
-                    // BUSCAMOS EL NOMBRE DEL MÉTODO EN EL DICCIONARIO
                     const metodoEncontrado = PagoMetodo.find(m => m.id === pago.Metodo);
                     const nombreMetodo = metodoEncontrado ? metodoEncontrado.metodo : 'Desconocido';
 
@@ -129,15 +128,19 @@ export function ModalDetallesFactura({ ordenId, isOpen, onClose }: ModalDetalles
               )}
             </div>
 
-            {/* Botón de Impresión de la vista */}
+            {/* BOTÓN PROTEGIDO: Impresión */}
             <div className="pt-4 flex justify-end">
-              <button 
-                onClick={() => alert('Módulo de impresión de comprobantes en desarrollo')}
-                className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
-              >
-                <span>🖨️</span> Imprimir Copia
-              </button>
+              <div className="inline-block" title={!puedeVerReportes ? "No tienes permisos para reimprimir facturas o reportes antiguos." : ""}>
+                <button 
+                  onClick={() => alert('Módulo de impresión de comprobantes en desarrollo')}
+                  disabled={!puedeVerReportes}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${!puedeVerReportes ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-sky-600 hover:bg-sky-700 text-white'}`}
+                >
+                  <span>🖨️</span> Imprimir Copia
+                </button>
+              </div>
             </div>
+
           </div>
         ) : null}
       </div>

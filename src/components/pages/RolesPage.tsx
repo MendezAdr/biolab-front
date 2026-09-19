@@ -8,7 +8,6 @@ export function RolesPage() {
   return (
     <MainLayout>
           
-          <Title></Title>
 
           <h2 className="text-xl font-semibold text-emerald-800">Gestión de Roles y Permisos</h2>
           <p className="text-slate-800 mt-2">Aquí podrás administrar los roles y permisos disponibles en el sistema.</p>

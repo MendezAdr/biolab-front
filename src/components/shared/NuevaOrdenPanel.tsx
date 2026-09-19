@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { pacienteService } from '../../services/pacienteService';
 import { examenesService } from '../../services/examenesService';
 import { tasaService } from '../../services/tasaService';
@@ -8,51 +9,49 @@ import type { OrdenCreateDTO } from '../../types/DTOs/OrdenCreateDTO';
 import type { PacienteCreateDTO } from '../../types/DTOs/PacienteCreateDTO';
 import type { PagoOrdenCreateDTO } from '../../types/DTOs/PagoOrdenCreateDTO';
 import { PagoMetodo } from '../../types/PagoModel'; 
-import type { Examen } from '../../types/ExamenModel'; // <-- IMPORTAMOS EL MODELO DE EXAMEN
+import type { Examen } from '../../types/ExamenModel'; 
 import type { Paciente } from '../../types/PacienteModel';
-import { useLocation } from 'react-router-dom';
-// import type { Paciente } from '../../types/PacienteModel'; // <-- IMPORTA TU MODELO DE PACIENTE AQUÍ
+
+// 1. IMPORTAMOS EL CONTEXTO GLOBAL DE SEGURIDAD
+import { useAuth } from '../../context/AuthContext';
+import { PERMISOS } from '../../types/AuthTypes';
 
 export function NuevaOrdenPanel() {
+  // 2. EXTRAEMOS EL USUARIO Y LA FUNCIÓN COMPROBADORA
+  const { usuario, tienePermiso } = useAuth();
   
-  const currentUserId = 1; 
-  const [tasaBcv, setTasaBcv] = useState<number>(0);
+  // Usamos el ID real del usuario, o 1 como fallback de seguridad
+  const currentUserId = usuario?.id || 1; 
 
-  //para presupuestos 
+  // ==========================================
+  // EVALUACIÓN DE PRIVILEGIOS
+  // ==========================================
+  const puedeCrearPaciente = tienePermiso(PERMISOS.MODIFICAR_PACIENTES);
+  const puedeRegistrarPagos = tienePermiso(PERMISOS.GESTIONAR_PAGOS);
+  const puedeCrearOrden = tienePermiso(PERMISOS.CREAR_ORDENES_Y_DETALLES);
+
+  const [tasaBcv, setTasaBcv] = useState<number>(0);
   const location = useLocation();
   const examenesDesdePresupuesto = location.state?.examenesPreCargados || [];
   
-  // ==========================================
-  // 1. ESTADOS DE DATOS EN MEMORIA (Tipados estrictamente)
-  // ==========================================
-  
-  // CAMBIO: Reemplazamos any[] por los tipos reales
-  const [pacientesBD, setPacientesBD] = useState<Paciente[]>([]); // Cambia 'any' por 'Paciente' cuando lo importes
+  const [pacientesBD, setPacientesBD] = useState<Paciente[]>([]); 
   const [examenesBD, setExamenesBD] = useState<Examen[]>([]); 
   
   const [cargandoGlobal, setCargandoGlobal] = useState(true);
   const [errorGlobal, setErrorGlobal] = useState<string | null>(null);
   
-
-  // ==========================================
-  // 2. ESTADOS DEL FLUJO DE TRABAJO (Wizard)
-  // ==========================================
-  
-  const [busquedaCedula, setBusquedaCedula] = useState<string>(''); // Forzamos a que siempre sea string
-  const [pacienteSeleccionado, setPacienteSeleccionado] = useState<Paciente | null>(null); // Cambia 'any' por 'Paciente'
+  const [busquedaCedula, setBusquedaCedula] = useState<string>(''); 
+  const [pacienteSeleccionado, setPacienteSeleccionado] = useState<Paciente | null>(null); 
   const [modalPacienteAbierto, setModalPacienteAbierto] = useState(false);
 
   const [busquedaExamen, setBusquedaExamen] = useState('');
-  const [examenesCarrito, setExamenesCarrito] = useState<Examen[]>(examenesDesdePresupuesto); // Tipado con Examen
+  const [examenesCarrito, setExamenesCarrito] = useState<Examen[]>(examenesDesdePresupuesto); 
 
   const [pagosAgregados, setPagosAgregados] = useState<PagoOrdenCreateDTO[]>([]);
   const [metodoPagoSeleccionado, setMetodoPagoSeleccionado] = useState<number>(1);
   const [montoPagoInput, setMontoPagoInput] = useState<string>('');
   const [referenciaPagoInput, setReferenciaPagoInput] = useState<string>('');
 
-  // ==========================================
-  // 3. EFECTO DE CARGA INICIAL
-  // ==========================================
   const cargarDatosMaestros = async () => {
     try {
       setCargandoGlobal(true);
@@ -75,14 +74,8 @@ export function NuevaOrdenPanel() {
     cargarDatosMaestros();
   }, []);
 
-  // ==========================================
-  // 4. LÓGICA Y CÁLCULOS EN MEMORIA
-  // ==========================================
-  
   const pacientesSugeridos = useMemo(() => {
-    // RED DE SEGURIDAD: Si busquedaCedula es undefined o null por alguna razón, retornamos vacío antes de evaluar .length
     if (!busquedaCedula || busquedaCedula.length < 3) return [];
-    
     return pacientesBD.filter(p => {
       const cedulaSegura = String(p.Cedula || p.Cedula || '').toLowerCase();
       return cedulaSegura.includes(busquedaCedula.toLowerCase());
@@ -92,15 +85,12 @@ export function NuevaOrdenPanel() {
   const examenesFiltrados = useMemo(() => {
     if (!busquedaExamen) return examenesBD;
     const busquedaLower = busquedaExamen.toLowerCase();
-    
     return examenesBD.filter(e => {
-      // Uso de NombreExamen según el ExamenModel
       const nombreSeguro = String(e.NombreExamen || '').toLowerCase();
       return nombreSeguro.includes(busquedaLower);
     });
   }, [busquedaExamen, examenesBD]);
 
-  // Cálculos de Totales (CostoEnDivisa según ExamenModel)
   const totalDivisa = examenesCarrito.reduce((acc, ex) => acc + (ex.CostoEnDivisa || 0), 0);
   const totalBolivares = totalDivisa * tasaBcv;
   
@@ -114,10 +104,6 @@ export function NuevaOrdenPanel() {
       setMontoPagoInput('');
     }
   }, [saldoRestante]);
-
-  // ==========================================
-  // 5. MANEJADORES DE EVENTOS
-  // ==========================================
 
   const agregarAlCarrito = (examen: Examen) => {
     if (!examenesCarrito.find(e => e.Id === examen.Id)) {
@@ -134,14 +120,9 @@ export function NuevaOrdenPanel() {
     try {
       const pacienteGuardado = await pacienteService.create(nuevoPaciente, currentUserId);
       await cargarDatosMaestros();
-      
       setPacienteSeleccionado(pacienteGuardado);
-      
-      // EL ARREGLO CRUCIAL: Verificamos si viene en PascalCase o camelCase, o usamos la que enviamos. 
-      // Lo convertimos a String explícitamente para evitar que `busquedaCedula` se corrompa.
       const cedulaSeguraParaElEstado = String(pacienteGuardado.Cedula || pacienteGuardado.cedula || nuevoPaciente.Cedula || '');
       setBusquedaCedula(cedulaSeguraParaElEstado);
-      
       setModalPacienteAbierto(false);
     } catch (err) {
       alert("Error al registrar el paciente.");
@@ -176,7 +157,6 @@ export function NuevaOrdenPanel() {
       alert("Faltan datos en la orden.");
       return;
     }
-
     if (saldoRestante > 0) {
       alert(`Aún hay un saldo pendiente de $${saldoRestante.toFixed(2)}. Complete el pago para procesar la orden.`);
       return;
@@ -188,11 +168,7 @@ export function NuevaOrdenPanel() {
       TotalDivisa: totalDivisa,
       TasaBCV: tasaBcv,
       Fecha: new Date(),
-      Detalles: examenesCarrito.map(ex => ({
-        ExamenId: ex.Id,
-        PrecioMomentoDivisa: ex.CostoEnDivisa 
-      })),
-      // Inyectamos el arreglo de pagos construido
+      Detalles: examenesCarrito.map(ex => ({ ExamenId: ex.Id, PrecioMomentoDivisa: ex.CostoEnDivisa })),
       Pagos: pagosAgregados 
     };
 
@@ -208,20 +184,15 @@ export function NuevaOrdenPanel() {
     }
   };
 
-  // ==========================================
-  // 6. RENDERIZADO VISUAL
-  // ==========================================
-
   if (cargandoGlobal) return <div className="p-10 text-center animate-pulse text-slate-500">Inicializando sistema de facturación...</div>;
   if (errorGlobal) return <div className="p-10 text-center text-red-600">{errorGlobal}</div>;
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 p-4">
-      {/* Cabecera */}
       <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
         <div>
           <h2 className="text-xl font-bold text-slate-800">Nueva Orden de Laboratorio</h2>
-          <p className="text-sm text-slate-500">Facturación bimodal en tiempo real</p>
+          <p className="text-sm text-slate-500">Operador actual: <span className="font-semibold text-emerald-700">{usuario?.nombre || 'Desconocido'}</span></p>
         </div>
         <div className="bg-sky-50 border border-sky-100 text-sky-800 px-4 py-2 rounded-lg text-sm font-bold flex flex-col items-end">
           <span>Tasa BCV del Día</span>
@@ -230,11 +201,8 @@ export function NuevaOrdenPanel() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* COLUMNA IZQUIERDA: Área de Trabajo (Pasos 1, 2 y 3) */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* PASO 1: PACIENTE */}
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
             <h3 className="font-bold text-slate-700 mb-4 border-b pb-2">1. Identificación del Paciente</h3>
             {pacienteSeleccionado ? (
@@ -254,34 +222,32 @@ export function NuevaOrdenPanel() {
                   placeholder="Ingrese Cédula del paciente..."
                   value={busquedaCedula}
                   onChange={(e) => setBusquedaCedula(e.target.value)}
-                  className="w-full border border-slate-300  text-slate-700 rounded-lg px-4 py-3 text-sm focus:border-emerald-500 focus:outline-none"
+                  className="w-full border border-slate-300 text-slate-700 rounded-lg px-4 py-3 text-sm focus:border-emerald-500 focus:outline-none"
                 />
                 {busquedaCedula.length >= 3 && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden">
                     {pacientesSugeridos.length > 0 ? (
                       pacientesSugeridos.map((p, index) => {
-                        // Acceso dinámico a las propiedades
-                        const idSeguro = p.Id || p.Id || index;
-                        const cedulaSegura = p.Cedula || p.Cedula;
-                        const nombreSeguro = p.Nombre || p.Nombre;
-                        const apellidoSeguro = p.Apellido || p.Apellido;
-
+                        const idSeguro = p.Id || index;
                         return (
-                          <div 
-                            key={idSeguro} // <-- Esto elimina la advertencia de React
-                            onClick={() => setPacienteSeleccionado(p)} 
-                            className="p-3 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0"
-                          >
-                            <span className="font-semibold text-sm">{cedulaSegura}</span> - <span className="text-sm text-slate-600">{nombreSeguro} {apellidoSeguro}</span>
+                          <div key={idSeguro} onClick={() => setPacienteSeleccionado(p)} className="p-3 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0">
+                            <span className="font-semibold text-sm">{p.Cedula}</span> - <span className="text-sm text-slate-600">{p.Nombre} {p.Apellido}</span>
                           </div>
                         );
                       })
                     ) :(
                       <div className="p-4 text-center">
                         <p className="text-sm text-slate-500 mb-3">No hay pacientes con esa cédula.</p>
-                        <button onClick={() => setModalPacienteAbierto(true)} className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 px-4 py-2 rounded-lg text-sm font-medium">
-                          + Registrar Nuevo Paciente
-                        </button>
+                        {/* BOTÓN PROTEGIDO 1: Registrar Paciente */}
+                        <div className="inline-block" title={!puedeCrearPaciente ? "Tu rol no tiene permiso para registrar pacientes nuevos." : ""}>
+                          <button 
+                            onClick={() => setModalPacienteAbierto(true)} 
+                            disabled={!puedeCrearPaciente}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${!puedeCrearPaciente ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'}`}
+                          >
+                            + Registrar Nuevo Paciente
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -290,22 +256,14 @@ export function NuevaOrdenPanel() {
             )}
           </div>
 
-          {/* PASO 2: EXÁMENES */}
           <div className={`bg-white p-5 rounded-xl border border-slate-200 shadow-sm transition-opacity ${!pacienteSeleccionado ? 'opacity-50 pointer-events-none' : ''}`}>
             <h3 className="font-bold text-slate-700 mb-4 border-b pb-2">2. Selección de Exámenes</h3>
-            <input 
-              type="text" 
-              placeholder="🔍 Buscar examen (ej. Hematología)..."
-              value={busquedaExamen}
-              onChange={(e) => setBusquedaExamen(e.target.value)}
-              className="w-full border border-slate-300 text-slate-700 rounded-lg px-4 py-2 text-sm mb-4 bg-slate-50"
-            />
+            <input type="text" placeholder="🔍 Buscar examen (ej. Hematología)..." value={busquedaExamen} onChange={(e) => setBusquedaExamen(e.target.value)} className="w-full border border-slate-300 text-slate-700 rounded-lg px-4 py-2 text-sm mb-4 bg-slate-50" />
             <div className="max-h-64 overflow-y-auto border border-slate-100 rounded-lg">
               {examenesFiltrados.map(examen => (
                 <div key={examen.Id} className="flex justify-between items-center p-3 hover:bg-slate-50 border-b border-slate-50">
                   <div>
                     <p className="text-sm font-medium text-slate-700">{examen.NombreExamen}</p>
-                    <p className="text-xs text-slate-500">Ref: {examen.Descripcion?.substring(0,30)}...</p>
                   </div>
                   <div className="flex items-center gap-4">
                     <span className="font-bold text-emerald-600">${examen.CostoEnDivisa}</span>
@@ -318,7 +276,6 @@ export function NuevaOrdenPanel() {
             </div>
           </div>
 
-          {/* PASO 3: REGISTRO DE PAGOS (Se habilita cuando hay un monto a pagar) */}
           <div className={`bg-white p-5 rounded-xl border border-slate-200 shadow-sm transition-opacity ${examenesCarrito.length === 0 ? 'opacity-50 pointer-events-none hidden' : ''}`}>
             <h3 className="font-bold text-slate-700 mb-4 border-b pb-2">3. Distribución de Pagos</h3>
             
@@ -326,9 +283,7 @@ export function NuevaOrdenPanel() {
               <div className="flex-1">
                 <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Método</label>
                 <select value={metodoPagoSeleccionado} onChange={(e) => setMetodoPagoSeleccionado(Number(e.target.value))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white">
-                  {PagoMetodo.map(m => (
-                    <option key={m.id} value={m.id}>{m.metodo}</option>
-                  ))}
+                  {PagoMetodo.map(m => <option key={m.id} value={m.id}>{m.metodo}</option>)}
                 </select>
               </div>
               <div className="flex-1">
@@ -339,12 +294,19 @@ export function NuevaOrdenPanel() {
                 <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Ref. (Opcional)</label>
                 <input type="text" value={referenciaPagoInput} onChange={(e) => setReferenciaPagoInput(e.target.value)} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white" placeholder="N/A" />
               </div>
-              <button onClick={agregarPago} disabled={saldoRestante <= 0} className="bg-sky-600 hover:bg-sky-700 disabled:bg-slate-400 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors h-[38px]">
-                Añadir Pago
-              </button>
+              
+              {/* BOTÓN PROTEGIDO 2: Añadir Pago */}
+              <div className="inline-block" title={!puedeRegistrarPagos ? "Tu rol no tiene permiso para procesar pagos ni manejar caja." : ""}>
+                <button 
+                  onClick={agregarPago} 
+                  disabled={saldoRestante <= 0 || !puedeRegistrarPagos} 
+                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors h-[38px] ${(!puedeRegistrarPagos || saldoRestante <= 0) ? 'bg-slate-400 text-white cursor-not-allowed' : 'bg-sky-600 hover:bg-sky-700 text-white'}`}
+                >
+                  Añadir Pago
+                </button>
+              </div>
             </div>
 
-            {/* Lista de pagos inyectados */}
             {pagosAgregados.length > 0 && (
               <div className="space-y-2">
                 {pagosAgregados.map((p, index) => {
@@ -367,12 +329,10 @@ export function NuevaOrdenPanel() {
           </div>
         </div>
 
-        {/* COLUMNA DERECHA: Carrito y Totalización */}
         <div className="lg:col-span-1">
           <div className="bg-slate-800 text-white p-5 rounded-xl shadow-lg sticky top-6">
             <h3 className="font-bold text-lg mb-4 border-b border-slate-600 pb-2">Resumen de la Orden</h3>
             
-            {/* Lista de exámenes en carrito */}
             <div className="min-h-[150px] max-h-[300px] overflow-y-auto mb-4 space-y-2 pr-2">
               {examenesCarrito.length === 0 ? (
                 <p className="text-sm text-slate-400 text-center italic mt-10">Aún no hay exámenes añadidos.</p>
@@ -389,7 +349,6 @@ export function NuevaOrdenPanel() {
               )}
             </div>
 
-            {/* Subtotales */}
             <div className="border-t border-slate-600 pt-4 space-y-2 mb-4">
               <div className="flex justify-between text-sm text-slate-300">
                 <span>Subtotal USD:</span>
@@ -401,7 +360,6 @@ export function NuevaOrdenPanel() {
               </div>
             </div>
 
-            {/* Calculadora de Pagos */}
             <div className="bg-slate-900 p-3 rounded-lg border border-slate-700 space-y-2">
                <div className="flex justify-between text-sm text-slate-300">
                 <span>Total Abonado:</span>
@@ -415,14 +373,17 @@ export function NuevaOrdenPanel() {
               </div>
             </div>
 
-            {/* Botón Final */}
-            <button 
-              onClick={procesarOrdenFinal}
-              disabled={examenesCarrito.length === 0 || !pacienteSeleccionado || saldoRestante > 0}
-              className="w-full mt-6 bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors"
-            >
-              {saldoRestante > 0 ? 'Complete el Pago para Guardar' : 'Procesar y Guardar Orden'}
-            </button>
+            {/* BOTÓN PROTEGIDO 3: Crear Orden Final */}
+            <div className="w-full mt-6" title={!puedeCrearOrden ? "No tienes permisos para emitir órdenes oficiales en el sistema." : ""}>
+              <button 
+                onClick={procesarOrdenFinal}
+                disabled={examenesCarrito.length === 0 || !pacienteSeleccionado || saldoRestante > 0 || !puedeCrearOrden}
+                className={`w-full font-bold py-3 rounded-lg transition-colors text-white ${(!puedeCrearOrden || examenesCarrito.length === 0 || !pacienteSeleccionado || saldoRestante > 0) ? 'bg-slate-600 cursor-not-allowed text-slate-400' : 'bg-emerald-500 hover:bg-emerald-400'}`}
+              >
+                {saldoRestante > 0 ? 'Complete el Pago para Guardar' : 'Procesar y Guardar Orden'}
+              </button>
+            </div>
+            
           </div>
         </div>
 

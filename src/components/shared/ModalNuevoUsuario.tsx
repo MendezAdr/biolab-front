@@ -1,18 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import type { UsuarioCreateDTO } from '../../types/DTOs/UsuarioCreateDTO';
 import type { UsuarioUpdateDTO } from '../../types/DTOs/UsuarioUpdateDTO';
-import type { Rol } from '../../types/DTOs/RolUsuarioEnum'; 
+// IMPORTACIÓN CORREGIDA
+import type { RolResponseDTO } from '../../types/DTOs/RolDTOS'; 
 import type { Usuario } from '../../types/UsuarioModel';
+
+import { useAuth } from '../../context/AuthContext';
+import { PERMISOS } from '../../types/AuthTypes';
 
 interface ModalNuevoUsuarioProps {
   isOpen: boolean;               
   onClose: () => void;           
   onGuardar: (datos: UsuarioCreateDTO | UsuarioUpdateDTO) => void; 
-  roles: Rol[]; 
-  usuarioExistente: Usuario | null; // Null para crear, Objeto para editar
+  // PROP TIPADA CORRECTAMENTE
+  roles: RolResponseDTO[]; 
+  usuarioExistente: Usuario | null; 
 }
 
 export function ModalNuevoUsuario({ isOpen, onClose, onGuardar, roles, usuarioExistente }: ModalNuevoUsuarioProps) {
+  const { tienePermiso } = useAuth();
+  const puedeGestionarUsuarios = tienePermiso(PERMISOS.GESTIONAR_USUARIOS);
+
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
   const [cedula, setCedula] = useState('');
@@ -30,7 +38,7 @@ export function ModalNuevoUsuario({ isOpen, onClose, onGuardar, roles, usuarioEx
         setCedula(usuarioExistente.Cedula);
         setUsername(usuarioExistente.Username);
         setRolId(usuarioExistente.RolId);
-        setContrasena(''); // La contraseña no se edita por esta vía
+        setContrasena(''); 
       } else {
         setNombre(''); setApellido(''); setCedula(''); setUsername(''); setContrasena('');
         setRolId(0);
@@ -49,7 +57,6 @@ export function ModalNuevoUsuario({ isOpen, onClose, onGuardar, roles, usuarioEx
     }
 
     if (esModoEdicion && usuarioExistente) {
-      // DTO de Actualización (Sin contraseña)
       const usuarioActualizado: UsuarioUpdateDTO = {
         Id: usuarioExistente.Id,
         Username: username,
@@ -60,7 +67,6 @@ export function ModalNuevoUsuario({ isOpen, onClose, onGuardar, roles, usuarioEx
       };
       onGuardar(usuarioActualizado);
     } else {
-      // DTO de Creación (Exige contraseña)
       if (!contrasena) {
         alert("La contraseña es obligatoria para nuevos usuarios.");
         return;
@@ -112,7 +118,6 @@ export function ModalNuevoUsuario({ isOpen, onClose, onGuardar, roles, usuarioEx
               <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 text-slate-700 focus:outline-none focus:border-emerald-500" />
             </div>
             
-            {/* Solo mostramos la contraseña si NO estamos editando */}
             {!esModoEdicion && (
               <div>
                 <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Contraseña *</label>
@@ -131,7 +136,8 @@ export function ModalNuevoUsuario({ isOpen, onClose, onGuardar, roles, usuarioEx
               <option value={0} disabled>Seleccione un rol...</option>
               {roles.map((rol) => (
                 <option key={rol.Id} value={rol.Id}>
-                  {rol.Name}
+                  {/* LECTURA CORREGIDA A RolName */}
+                  {rol.RolName}
                 </option>
               ))}
             </select>
@@ -141,9 +147,17 @@ export function ModalNuevoUsuario({ isOpen, onClose, onGuardar, roles, usuarioEx
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-500 hover:bg-slate-100 rounded-lg">
               Cancelar
             </button>
-            <button type="submit" className={`px-4 py-2 text-sm font-medium text-white rounded-lg shadow-sm transition-colors ${esModoEdicion ? 'bg-sky-600 hover:bg-sky-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
-              {esModoEdicion ? 'Guardar Cambios' : 'Registrar Credenciales'}
-            </button>
+            
+            <div className="inline-block" title={!puedeGestionarUsuarios ? "No posees los privilegios necesarios para guardar perfiles de usuario." : ""}>
+              <button 
+                type="submit" 
+                disabled={!puedeGestionarUsuarios}
+                className={`px-4 py-2 text-sm font-medium rounded-lg shadow-sm transition-colors ${!puedeGestionarUsuarios ? 'bg-slate-400 text-slate-200 cursor-not-allowed' : esModoEdicion ? 'bg-sky-600 hover:bg-sky-700 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
+              >
+                {esModoEdicion ? 'Guardar Cambios' : 'Registrar Credenciales'}
+              </button>
+            </div>
+            
           </div>
         </form>
       </div>

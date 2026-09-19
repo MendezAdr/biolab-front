@@ -5,16 +5,24 @@ import type { PacienteUpdateDTO } from '../../types/DTOs/PacienteUpdateDTO';
 import { ModalPaciente } from './ModalPaciente';
 import type { Paciente } from '../../types/PacienteModel';
 
+// 1. IMPORTAMOS EL CONTEXTO Y LOS PERMISOS
+import { useAuth } from '../../context/AuthContext';
+import { PERMISOS } from '../../types/AuthTypes';
+
 export function TablaPacientes() {
+  // 2. EXTRAEMOS LA SESIÓN ACTUAL
+  const { usuario, tienePermiso } = useAuth();
+  const currentUserId = usuario?.id || 1; 
+  
+  // Evaluamos el permiso
+  const puedeGestionarPacientes = tienePermiso(PERMISOS.MODIFICAR_PACIENTES);
+
   const [listaPacientes, setListaPacientes] = useState<Paciente[]>([]); 
   const [cargando, setCargando] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Estados para el Modal Multipropósito
   const [modalAbierto, setModalAbierto] = useState(false);
   const [pacienteAEditar, setPacienteAEditar] = useState<Paciente | null>(null);
-
-  const currentUserId = 1; 
 
   const cargarPacientes = async () => {
     try {
@@ -43,7 +51,6 @@ export function TablaPacientes() {
     setModalAbierto(true);
   };
 
-  // Función para desactivar (borrado lógico)
   const desactivarPaciente = async (id: number, nombre: string) => {
     if(window.confirm(`¿Estás seguro de que deseas desactivar el registro de ${nombre}?`)) {
       try {
@@ -56,15 +63,12 @@ export function TablaPacientes() {
     }
   };
 
-  // Manejador central que discrimina entre crear y actualizar
   const manejarGuardado = async (datos: PacienteCreateDTO | PacienteUpdateDTO) => {
     try {
       if ('Id' in datos) {
-        // Si el objeto tiene Id, es un UpdateDTO
         await pacienteService.update(datos.Id, datos as PacienteUpdateDTO, currentUserId);
         alert("Ficha de paciente actualizada correctamente.");
       } else {
-        // Si no tiene Id, es un CreateDTO
         await pacienteService.create(datos as PacienteCreateDTO, currentUserId);
         alert("Paciente registrado con éxito.");
       }
@@ -86,12 +90,17 @@ export function TablaPacientes() {
           <h2 className="text-lg font-semibold text-sky-700">Lista de Pacientes</h2>
           <p className="text-sm text-slate-500">Registro histórico general del laboratorio</p>
         </div>
-        <button 
-          onClick={abrirModalCrear}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
-        >
-          + Nuevo Paciente
-        </button>
+        
+        {/* BOTÓN PROTEGIDO: Nuevo Paciente */}
+        <div className="inline-block" title={!puedeGestionarPacientes ? "Tu rol no tiene permiso para registrar pacientes." : ""}>
+          <button 
+            onClick={abrirModalCrear}
+            disabled={!puedeGestionarPacientes}
+            className={`px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors ${!puedeGestionarPacientes ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
+          >
+            + Nuevo Paciente
+          </button>
+        </div>
       </div>
 
       <div className="overflow-x-auto">
@@ -126,18 +135,29 @@ export function TablaPacientes() {
                     </span>
                   </td>
                   <td className="p-4 text-center space-x-2">
-                    <button 
-                      onClick={() => abrirModalEditar(paciente)}
-                      className="text-sky-600 hover:text-sky-800 font-medium text-xs bg-sky-50 px-3 py-1.5 rounded transition-colors"
-                    >
-                      Editar
-                    </button>
-                    <button 
-                      onClick={() => desactivarPaciente(paciente.Id, paciente.Nombre)}
-                      className="text-rose-600 hover:text-rose-800 font-medium text-xs bg-rose-50 px-3 py-1.5 rounded transition-colors"
-                    >
-                      Desactivar
-                    </button>
+                    
+                    {/* BOTÓN PROTEGIDO: Editar */}
+                    <div className="inline-block" title={!puedeGestionarPacientes ? "Tu rol no tiene permiso para editar fichas." : ""}>
+                      <button 
+                        onClick={() => abrirModalEditar(paciente)}
+                        disabled={!puedeGestionarPacientes}
+                        className={`font-medium text-xs px-3 py-1.5 rounded transition-colors ${!puedeGestionarPacientes ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-sky-50 text-sky-600 hover:text-sky-800'}`}
+                      >
+                        Editar
+                      </button>
+                    </div>
+
+                    {/* BOTÓN PROTEGIDO: Desactivar */}
+                    <div className="inline-block" title={!puedeGestionarPacientes ? "Tu rol no tiene permiso para desactivar pacientes." : ""}>
+                      <button 
+                        onClick={() => desactivarPaciente(paciente.Id, paciente.Nombre)}
+                        disabled={!puedeGestionarPacientes}
+                        className={`font-medium text-xs px-3 py-1.5 rounded transition-colors ${!puedeGestionarPacientes ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-rose-50 text-rose-600 hover:text-rose-800'}`}
+                      >
+                        Desactivar
+                      </button>
+                    </div>
+
                   </td>
                 </tr>
               ))

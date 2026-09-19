@@ -3,16 +3,22 @@ import type { PacienteCreateDTO } from '../../types/DTOs/PacienteCreateDTO';
 import type { PacienteUpdateDTO } from '../../types/DTOs/PacienteUpdateDTO';
 import type { Paciente } from '../../types/PacienteModel';
 
+// 1. IMPORTAMOS EL CONTEXTO Y LOS PERMISOS
+import { useAuth } from '../../context/AuthContext';
+import { PERMISOS } from '../../types/AuthTypes';
+
 interface ModalPacienteProps {
   isOpen: boolean;               
   onClose: () => void;           
-  // Acepta ambos DTOs dependiendo de si estamos creando o editando
   onGuardar: (datos: PacienteCreateDTO | PacienteUpdateDTO) => void; 
   pacienteExistente: Paciente | null; 
 }
 
 export function ModalPaciente({ isOpen, onClose, onGuardar, pacienteExistente }: ModalPacienteProps) {
-  
+  // 2. VERIFICAMOS PERMISOS DENTRO DEL MODAL
+  const { tienePermiso } = useAuth();
+  const puedeGestionarPacientes = tienePermiso(PERMISOS.MODIFICAR_PACIENTES);
+
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
   const [cedula, setCedula] = useState('');
@@ -26,7 +32,6 @@ export function ModalPaciente({ isOpen, onClose, onGuardar, pacienteExistente }:
 
   const esModoEdicion = !!pacienteExistente;
 
-  // Función segura para formatear la fecha del backend al formato YYYY-MM-DD que exige el <input type="date">
   const formatearFechaParaInput = (fecha: Date | string | undefined) => {
     if (!fecha) return '';
     const d = new Date(fecha);
@@ -46,7 +51,6 @@ export function ModalPaciente({ isOpen, onClose, onGuardar, pacienteExistente }:
         setNombreAcompanante(pacienteExistente.NombreAcompanante || '');
         setCedulaAcompanante(pacienteExistente.CedulaAcompanante || '');
       } else {
-        // Limpiar si es creación
         setNombre(''); setApellido(''); setCedula(''); setSexo('M'); 
         setTelefono(''); setDireccion(''); setFechaNacimiento('');
         setNombreAcompanante(''); setCedulaAcompanante('');
@@ -172,9 +176,17 @@ export function ModalPaciente({ isOpen, onClose, onGuardar, pacienteExistente }:
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100 rounded-lg">
               Cancelar
             </button>
-            <button type="submit" className={`px-4 py-2 text-sm font-medium text-white rounded-lg shadow-sm transition-colors ${esModoEdicion ? 'bg-sky-600 hover:bg-sky-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
-              {esModoEdicion ? 'Guardar Cambios' : 'Registrar Paciente'}
-            </button>
+            
+            {/* BOTÓN PROTEGIDO: Enviar Formulario */}
+            <div className="inline-block" title={!puedeGestionarPacientes ? "No posees los privilegios necesarios para realizar esta acción." : ""}>
+              <button 
+                type="submit" 
+                disabled={!puedeGestionarPacientes}
+                className={`px-4 py-2 text-sm font-medium text-white rounded-lg shadow-sm transition-colors ${!puedeGestionarPacientes ? 'bg-slate-400 cursor-not-allowed' : esModoEdicion ? 'bg-sky-600 hover:bg-sky-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+              >
+                {esModoEdicion ? 'Guardar Cambios' : 'Registrar Paciente'}
+              </button>
+            </div>
           </div>
         </form>
       </div>

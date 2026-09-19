@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { ordenesService } from '../../services/ordenesService';
-import { pacienteService } from '../../services/pacienteService'; // Importamos el servicio de pacientes
+import { pacienteService } from '../../services/pacienteService';
 import { impresionesService, type ReporteCaja, type ReportePacientes, type ReporteMorosos } from '../../services/ImpresionesService';
 import { PDFViewer, PDFDownloadLink, Document, Page } from '@react-pdf/renderer';
 import { ReporteCajaPDF } from '../pdf/ReporteCajaPDF';
@@ -10,58 +10,62 @@ import { PresupuestoPDF } from '../pdf/PresupuestoPDF';
 import { ReportePacientesPDF } from '../pdf/ReportePacientesPDF';
 import { excelExportService } from '../../services/ExcelExportService';
 
+// 1. IMPORTAMOS EL CONTEXTO Y LOS PERMISOS
+import { useAuth } from '../../context/AuthContext';
+import { PERMISOS } from '../../types/AuthTypes';
+
 type TipoReporte = 'presupuesto' | 'cierre_diario' | 'cierre_fechas' | 'pacientes' | 'morosos' | null;
 
 export function PanelImpresiones() {
-  //helper para determinar tipo de impresion:
+  // 2. EXTRAEMOS LA SESIÓN ACTUAL
+  const { usuario, tienePermiso } = useAuth();
+  const currentUserId = usuario?.id || 1; 
+  const nombreUsuarioActual = usuario?.nombre || 'Operador Desconocido';
+
+  const location = useLocation();
+  const paqueteExterno = location.state; 
+
+  const [tipoReporteSeleccionado, setTipoReporteSeleccionado] = useState<TipoReporte>(
+    paqueteExterno?.tipoDocumento === 'presupuesto' ? 'presupuesto' : 'cierre_diario'
+  );
+
+  const vistaPreviaRef = useRef<HTMLDivElement>(null);
+  const [fechaInicio, setFechaInicio] = useState('');
+  const [fechaFin, setFechaFin] = useState('');
+  const [cargando, setCargando] = useState(false);
+
+  const [reporteCaja, setReporteCaja] = useState<ReporteCaja | null>(null);
+  const [reportePacientes, setReportePacientes] = useState<ReportePacientes | null>(null);
+  const [reporteMorosos, setReporteMorosos] = useState<ReporteMorosos | null>(null);
+  const datosPresupuesto = paqueteExterno?.tipoDocumento === 'presupuesto' ? paqueteExterno.datos : null;
+
+  // ==========================================
+  // 3. EVALUACIÓN DINÁMICA DE PERMISOS
+  // ==========================================
+  const evaluarPermisoNecesario = () => {
+    if (datosPresupuesto) return tienePermiso(PERMISOS.GESTIONAR_PRESUPUESTOS);
+    if (tipoReporteSeleccionado === 'cierre_diario' || tipoReporteSeleccionado === 'cierre_fechas') {
+      return tienePermiso(PERMISOS.TOTALIZAR);
+    }
+    return tienePermiso(PERMISOS.VER_REPORTES);
+  };
+
+  const tienePermisoParaReporte = evaluarPermisoNecesario();
+
   const obtenerDocumentoPDF = () => {
-    if (reporteCaja && !datosPresupuesto) return <ReporteCajaPDF reporte={reporteCaja} usuarioNombre={currentUser.nombre} />;
-    if (datosPresupuesto) return <PresupuestoPDF datos={datosPresupuesto} usuarioNombre={currentUser.nombre} />;
-    if (reportePacientes) return <ReportePacientesPDF reporte={reportePacientes} usuarioNombre={currentUser.nombre} />;
-    if (reporteMorosos) return <ReporteMorososPDF reporte={reporteMorosos} usuarioNombre={currentUser.nombre} />;
-    
-    // Retorno de seguridad (nunca debería llegar aquí)
+    if (reporteCaja && !datosPresupuesto) return <ReporteCajaPDF reporte={reporteCaja} usuarioNombre={nombreUsuarioActual} />;
+    if (datosPresupuesto) return <PresupuestoPDF datos={datosPresupuesto} usuarioNombre={nombreUsuarioActual} />;
+    if (reportePacientes) return <ReportePacientesPDF reporte={reportePacientes} usuarioNombre={nombreUsuarioActual} />;
+    if (reporteMorosos) return <ReporteMorososPDF reporte={reporteMorosos} usuarioNombre={nombreUsuarioActual} />;
     return <Document><Page/></Document>; 
   };
 
-  // helper de excel
   const manejarExportacionExcel = () => {
     if (reporteCaja) {
       excelExportService.exportarCaja(reporteCaja);
     } else if (reporteMorosos) {
       // excelExportService.exportarMorosos(reporteMorosos);
     }
-  };
-  
-
-  const location = useLocation();
-  const paqueteExterno = location.state; 
-  const currentUserId = 1; 
-
-  const [tipoReporteSeleccionado, setTipoReporteSeleccionado] = useState<TipoReporte>(
-    paqueteExterno?.tipoDocumento === 'presupuesto' ? 'presupuesto' : 'cierre_diario'
-  );
-
-
-  const vistaPreviaRef = useRef<HTMLDivElement>(null);
-
-  const [fechaInicio, setFechaInicio] = useState('');
-  const [fechaFin, setFechaFin] = useState('');
-  const [cargando, setCargando] = useState(false);
-
-  // Estados para almacenar los resultados del Orquestador
-  const [reporteCaja, setReporteCaja] = useState<ReporteCaja | null>(null);
-  const [reportePacientes, setReportePacientes] = useState<ReportePacientes | null>(null);
-  const [reporteMorosos, setReporteMorosos] = useState<ReporteMorosos | null>(null);
-  const datosPresupuesto = paqueteExterno?.tipoDocumento === 'presupuesto' ? paqueteExterno.datos : null;
-  
-                  /* =======================================================*/
-                  /*                    Inyeccion de usuario                */
-                  /* =======================================================*/
-  const currentUser = {
-    id: 1,
-    nombre: "Adrián Méndez",
-    rol: "Administrador"
   };
 
   const puedeExportarExcel = !!reporteCaja || !!reporteMorosos;
@@ -72,13 +76,11 @@ export function PanelImpresiones() {
     }
   }, [datosPresupuesto]);
 
-  // Limpia los resultados previos al cambiar de tipo de reporte
   useEffect(() => {
     setReporteCaja(null);
     setReportePacientes(null);
     setReporteMorosos(null);
     
-    // Si seleccionan cierre diario, pre-cargamos las fechas con el día de hoy
     if (tipoReporteSeleccionado === 'cierre_diario') {
       const hoy = new Date().toISOString().split('T')[0];
       setFechaInicio(hoy);
@@ -90,6 +92,11 @@ export function PanelImpresiones() {
   }, [tipoReporteSeleccionado]);
 
   const manejarGenerarReporte = async () => {
+    if (!tienePermisoParaReporte) {
+      alert("No posees los privilegios necesarios para generar este tipo de reporte.");
+      return;
+    }
+
     setCargando(true);
     try {
       if (tipoReporteSeleccionado === 'cierre_diario' || tipoReporteSeleccionado === 'cierre_fechas') {
@@ -107,14 +114,14 @@ export function PanelImpresiones() {
       
       } else if (tipoReporteSeleccionado === 'morosos') {
         const [ordenesBrutas, pacientesBrutos] = await Promise.all([
-          ordenesService.getAll(currentUserId), // Traemos todas para filtrar pendientes en memoria
+          ordenesService.getAll(currentUserId), 
           pacienteService.getAll()
         ]);
         setReporteMorosos(impresionesService.generarReporteMorosos(ordenesBrutas, pacientesBrutos));
         
         setTimeout(() => {
-        vistaPreviaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 200);
+          vistaPreviaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 200);
       }
     } catch (err) {
       alert("Error al generar el reporte.");
@@ -124,13 +131,13 @@ export function PanelImpresiones() {
   };
 
   const hayReporteGenerado = reporteCaja || reportePacientes || reporteMorosos || datosPresupuesto;
+  const mensajePermisoDenegado = "Tu rol no tiene permiso para procesar o visualizar esta categoría de reporte.";
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 print:hidden">
         
-        {/* PANEL LATERAL: Selector de Reportes */}
         <div className="lg:col-span-1 bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-2">
           <h3 className="font-bold text-slate-800 mb-4 border-b pb-2">Tipo de Reporte</h3>
           
@@ -153,15 +160,12 @@ export function PanelImpresiones() {
           )}
         </div>
 
-        {/* PANEL CENTRAL: Controles y Acciones */}
         <div className="lg:col-span-3 bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
           
           <div>
             <h2 className="text-xl font-bold text-slate-800 mb-2">Configuración del Documento</h2>
             <p className="text-sm text-slate-500 mb-6">Ajuste los parámetros antes de generar la vista previa.</p>
             
-            
-            {/* Renderizado Condicional de Controles */}
             {(tipoReporteSeleccionado === 'cierre_fechas' || tipoReporteSeleccionado === 'cierre_diario') && (
               <div className="flex gap-4 items-end bg-slate-50 p-4 rounded-lg border border-slate-100 mb-6">
                 <div className="flex-1">
@@ -189,34 +193,48 @@ export function PanelImpresiones() {
           </div>
 
           <div className="flex justify-between border-t border-slate-100 pt-4">
-            <button 
-              onClick={manejarExportacionExcel}
-              disabled={!puedeExportarExcel || datosPresupuesto !== null}
-              className="bg-emerald-100 hover:bg-emerald-200 text-emerald-800 disabled:opacity-50 px-6 py-2 rounded-lg text-sm font-bold transition-colors"
-            >
-              📊 Exportar a Excel
-            </button>
+            
+            {/* BOTÓN PROTEGIDO: Exportar a Excel */}
+            <div className="inline-block" title={!tienePermisoParaReporte ? mensajePermisoDenegado : ""}>
+              <button 
+                onClick={manejarExportacionExcel}
+                disabled={!puedeExportarExcel || datosPresupuesto !== null || !tienePermisoParaReporte}
+                className={`px-6 py-2 rounded-lg text-sm font-bold transition-colors ${(!puedeExportarExcel || datosPresupuesto !== null || !tienePermisoParaReporte) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800'}`}
+              >
+                📊 Exportar a Excel
+              </button>
+            </div>
 
             <div className="space-x-3 flex items-center">
+              
+              {/* BOTÓN PROTEGIDO: Cargar Vista Previa */}
               {!datosPresupuesto && (
-                <button onClick={manejarGenerarReporte} disabled={cargando} className="bg-slate-800 hover:bg-slate-700 text-white px-6 py-2 rounded-lg text-sm font-bold transition-colors">
-                  {cargando ? 'Cargando...' : '👁️ Cargar Vista Previa'}
-                </button>
+                <div className="inline-block" title={!tienePermisoParaReporte ? mensajePermisoDenegado : ""}>
+                  <button 
+                    onClick={manejarGenerarReporte} 
+                    disabled={cargando || !tienePermisoParaReporte} 
+                    className={`px-6 py-2 rounded-lg text-sm font-bold transition-colors ${(!tienePermisoParaReporte) ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-slate-800 hover:bg-slate-700 text-white'}`}
+                  >
+                    {cargando ? 'Cargando...' : '👁️ Cargar Vista Previa'}
+                  </button>
+                </div>
               )}
               
-              {/* === NUEVO BOTÓN CONECTADO AL PDF === */}
+              {/* BOTÓN PROTEGIDO: Descargar PDF */}
               {hayReporteGenerado ? (
-                <PDFDownloadLink
-                  document={obtenerDocumentoPDF()}
-                  fileName={`RIV_CARR_${tipoReporteSeleccionado}_${new Date().getTime()}.pdf`}
-                  className="bg-sky-600 hover:bg-sky-700 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-md transition-colors flex items-center justify-center h-[38px]"
-                >
-                  {({ loading }) => (loading ? '⏳ Preparando...' : '📥 Descargar PDF')}
-                </PDFDownloadLink>
+                <div className="inline-block" title={!tienePermisoParaReporte ? mensajePermisoDenegado : ""}>
+                  <PDFDownloadLink
+                    document={obtenerDocumentoPDF()}
+                    fileName={`BioLab_${tipoReporteSeleccionado}_${new Date().getTime()}.pdf`}
+                    className={`px-6 py-2 rounded-lg text-sm font-bold shadow-md transition-colors flex items-center justify-center h-[38px] ${!tienePermisoParaReporte ? 'bg-slate-300 text-slate-100 cursor-not-allowed pointer-events-none' : 'bg-sky-600 hover:bg-sky-700 text-white'}`}
+                  >
+                    {({ loading }) => (loading ? '⏳ Preparando...' : '📥 Descargar PDF')}
+                  </PDFDownloadLink>
+                </div>
               ) : (
                 <button 
                   disabled
-                  className="bg-sky-600 disabled:bg-slate-300 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-md transition-colors h-[38px]"
+                  className="bg-slate-300 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-md transition-colors h-[38px] cursor-not-allowed"
                 >
                   📥 Descargar PDF
                 </button>
@@ -225,41 +243,36 @@ export function PanelImpresiones() {
           </div>
         </div>
       </div>
-
-      {/* ========================================== */}
-      {/* VISTA PREVIA (Estilo "Hoja de Papel" en pantalla, visible y lista para imprimir) */}
-      {/* ========================================== */}
       
-      {hayReporteGenerado && (
+      {hayReporteGenerado && tienePermisoParaReporte && (
         <div ref={vistaPreviaRef} className="mt-8 mb-20">
           <p className="text-center text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 print:hidden">
             --- Vista Previa del Documento ---
           </p>
           
-          {/* ELIMINAMOS EL "FALSO A4" Y LE DIMOS UNA ALTURA FIJA AL CONTENEDOR */}
           <div className="h-[800px] w-full">
             
             {reporteCaja && !datosPresupuesto && (
               <PDFViewer width="100%" height="100%" className="rounded-xl shadow-2xl border border-slate-300">
-                <ReporteCajaPDF reporte={reporteCaja} usuarioNombre={currentUser.nombre} />
+                <ReporteCajaPDF reporte={reporteCaja} usuarioNombre={nombreUsuarioActual} />
               </PDFViewer>
             )}
 
             {datosPresupuesto && (
               <PDFViewer width="100%" height="100%" className="rounded-xl shadow-2xl border border-slate-300">
-                <PresupuestoPDF datos={datosPresupuesto} usuarioNombre={currentUser.nombre} />
+                <PresupuestoPDF datos={datosPresupuesto} usuarioNombre={nombreUsuarioActual} />
               </PDFViewer>
             )}
 
             {reportePacientes && (
               <PDFViewer width="100%" height="100%" className="rounded-xl shadow-2xl border border-slate-300">
-                <ReportePacientesPDF reporte={reportePacientes} usuarioNombre={currentUser.nombre} />
+                <ReportePacientesPDF reporte={reportePacientes} usuarioNombre={nombreUsuarioActual} />
               </PDFViewer>
             )}
 
             {reporteMorosos && (
               <PDFViewer width="100%" height="100%" className="rounded-xl shadow-2xl border border-slate-300">
-                <ReporteMorososPDF reporte={reporteMorosos} usuarioNombre={currentUser.nombre} />
+                <ReporteMorososPDF reporte={reporteMorosos} usuarioNombre={nombreUsuarioActual} />
               </PDFViewer>
             )}
 

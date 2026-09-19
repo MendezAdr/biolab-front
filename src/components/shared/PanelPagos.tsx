@@ -5,23 +5,29 @@ import type { PagoStandaloneCreateDTO } from '../../types/DTOs/PagoStandaloneCre
 import type { PagoUpdateDTO } from '../../types/DTOs/PagoUpdateDTO';
 import { PagoMetodo, type Pago } from '../../types/PagoModel';
 
+// 1. IMPORTAMOS EL CONTEXTO Y LOS PERMISOS
+import { useAuth } from '../../context/AuthContext';
+import { PERMISOS } from '../../types/AuthTypes';
+
 export function PanelPagos() {
+  // 2. EXTRAEMOS LA SESIÓN ACTUAL
+  const { usuario, tienePermiso } = useAuth();
+  const currentUserId = usuario?.id || 1; 
+
+  // Evaluamos el permiso
+  const puedeGestionarPagos = tienePermiso(PERMISOS.GESTIONAR_PAGOS);
+
   const [listaPagos, setListaPagos] = useState<Pago[]>([]);
   const [cargando, setCargando] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Estados para el Modal
   const [modalAbierto, setModalAbierto] = useState(false);
   const [pagoAEditar, setPagoAEditar] = useState<Pago | null>(null);
-
-  const currentUserId = 1; // Simulación de ID del Administrador
 
   const cargarPagos = async () => {
     try {
       setCargando(true);
       setError(null);
-      // Usamos el método de fechas sin parámetros para intentar traer los recientes
-      // (Asumiendo que el backend maneja fechas por defecto si vienen nulas)
       const respuesta = await pagosService.getByFechas();
       setListaPagos(respuesta || []);
     } catch (err) {
@@ -61,11 +67,9 @@ export function PanelPagos() {
   const manejarGuardado = async (datos: PagoStandaloneCreateDTO | PagoUpdateDTO) => {
     try {
       if (pagoAEditar) {
-        // Es una corrección (Update)
         await pagosService.update(pagoAEditar.Id, datos as PagoUpdateDTO, currentUserId);
         alert("Pago corregido exitosamente.");
       } else {
-        // Es un abono nuevo (Create)
         await pagosService.createAddPago(datos as PagoStandaloneCreateDTO, currentUserId);
         alert("Abono registrado exitosamente.");
       }
@@ -94,12 +98,17 @@ export function PanelPagos() {
           <h2 className="text-xl font-bold text-slate-800">Control de Caja y Abonos</h2>
           <p className="text-sm text-slate-500">Auditoría de pagos, correcciones y recepción de deudas</p>
         </div>
-        <button 
-          onClick={abrirModalCrear}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-sm"
-        >
-          + Registrar Abono Manual
-        </button>
+
+        {/* BOTÓN PROTEGIDO: Registrar Abono */}
+        <div className="inline-block" title={!puedeGestionarPagos ? "Tu rol no tiene permiso para registrar pagos en caja." : ""}>
+          <button 
+            onClick={abrirModalCrear}
+            disabled={!puedeGestionarPagos}
+            className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-sm ${!puedeGestionarPagos ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
+          >
+            + Registrar Abono Manual
+          </button>
+        </div>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
@@ -124,7 +133,6 @@ export function PanelPagos() {
                 </tr>
               ) : (
                 listaPagos.map((pago) => {
-                  // TRADUCCIÓN DEL MÉTODO DE PAGO
                   const nombreMetodo = PagoMetodo.find(m => m.id === pago.Metodo)?.metodo || 'Desconocido';
 
                   return (
@@ -139,12 +147,29 @@ export function PanelPagos() {
                       <td className="p-4 text-slate-500">{pago.Referencia || 'N/A'}</td>
                       <td className="p-4 font-bold text-slate-800 text-right">${pago.Monto}</td>
                       <td className="p-4 text-center space-x-2">
-                        <button onClick={() => abrirModalEditar(pago)} className="text-amber-600 hover:text-amber-800 font-medium text-xs bg-amber-50 px-2 py-1 rounded">
-                          Corregir
-                        </button>
-                        <button onClick={() => anularPago(pago.Id)} className="text-rose-600 hover:text-rose-800 font-medium text-xs bg-rose-50 px-2 py-1 rounded">
-                          Anular
-                        </button>
+                        
+                        {/* BOTÓN PROTEGIDO: Corregir */}
+                        <div className="inline-block" title={!puedeGestionarPagos ? "Sin permisos para corregir pagos." : ""}>
+                          <button 
+                            onClick={() => abrirModalEditar(pago)} 
+                            disabled={!puedeGestionarPagos}
+                            className={`font-medium text-xs px-2 py-1 rounded transition-colors ${!puedeGestionarPagos ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'text-amber-600 hover:text-amber-800 bg-amber-50'}`}
+                          >
+                            Corregir
+                          </button>
+                        </div>
+
+                        {/* BOTÓN PROTEGIDO: Anular */}
+                        <div className="inline-block" title={!puedeGestionarPagos ? "Sin permisos para anular pagos." : ""}>
+                          <button 
+                            onClick={() => anularPago(pago.Id)} 
+                            disabled={!puedeGestionarPagos}
+                            className={`font-medium text-xs px-2 py-1 rounded transition-colors ${!puedeGestionarPagos ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'text-rose-600 hover:text-rose-800 bg-rose-50'}`}
+                          >
+                            Anular
+                          </button>
+                        </div>
+
                       </td>
                     </tr>
                   );

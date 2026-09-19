@@ -8,7 +8,7 @@ export function NuevaOrdenPage() {
   return (
     <MainLayout>
           
-          <Title></Title>
+         
         <h2 className="text-xl font-semibold text-emerald-800">Creación de nueva orden</h2>
         <NuevaOrdenPanel/>
     </MainLayout>

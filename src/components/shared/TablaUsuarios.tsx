@@ -3,22 +3,29 @@ import { usuariosService } from '../../services/usuarioService';
 import { rolService } from '../../services/rolService';
 import type { UsuarioCreateDTO } from '../../types/DTOs/UsuarioCreateDTO';
 import type { UsuarioUpdateDTO } from '../../types/DTOs/UsuarioUpdateDTO';
-import type { Rol } from '../../types/DTOs/RolUsuarioEnum'; 
+// IMPORTACIÓN CORREGIDA
+import type { RolResponseDTO } from '../../types/DTOs/RolDTOS'; 
 import { ModalNuevoUsuario } from './ModalNuevoUsuario';
 import type { Usuario } from '../../types/UsuarioModel';
 
+import { useAuth } from '../../context/AuthContext';
+import { PERMISOS } from '../../types/AuthTypes';
+
 export function TablaUsuarios() {
+  const { usuario, tienePermiso } = useAuth();
+  const currentUserId = usuario?.id || 1; 
+
+  const puedeGestionarUsuarios = tienePermiso(PERMISOS.GESTIONAR_USUARIOS);
+
   const [listaUsuarios, setListaUsuarios] = useState<Usuario[]>([]); 
-  const [rolesDisponibles, setRolesDisponibles] = useState<Rol[]>([]); 
+  // ESTADO TIPADO CORRECTAMENTE
+  const [rolesDisponibles, setRolesDisponibles] = useState<RolResponseDTO[]>([]); 
   
   const [cargando, setCargando] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Controles del Modal
   const [modalAbierto, setModalAbierto] = useState(false);
   const [usuarioAEditar, setUsuarioAEditar] = useState<Usuario | null>(null);
-
-  const currentUserId = 1; 
 
   const cargarDatosIniciales = async () => {
     try {
@@ -70,11 +77,9 @@ export function TablaUsuarios() {
   const manejarGuardarUsuario = async (datos: UsuarioCreateDTO | UsuarioUpdateDTO) => {
     try {
       if ('Id' in datos) {
-        // Modo Edición
         await usuariosService.updateUser(datos.Id, datos as UsuarioUpdateDTO, currentUserId);
         alert("Perfil de usuario actualizado correctamente.");
       } else {
-        // Modo Creación
         await usuariosService.create(datos as UsuarioCreateDTO, currentUserId);
         alert("Nuevo usuario registrado con éxito.");
       }
@@ -109,12 +114,16 @@ export function TablaUsuarios() {
           <h2 className="text-lg font-semibold text-emerald-800">Control de Usuarios</h2>
           <p className="text-sm text-slate-500">Personal con acceso al sistema BioLab</p>
         </div>
-        <button 
-          className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
-          onClick={abrirModalCrear}
-        >
-          + Registrar Personal
-        </button>
+        
+        <div className="inline-block" title={!puedeGestionarUsuarios ? "Tu rol no tiene permiso para administrar al personal." : ""}>
+          <button 
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm ${!puedeGestionarUsuarios ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
+            onClick={abrirModalCrear}
+            disabled={!puedeGestionarUsuarios}
+          >
+            + Registrar Personal
+          </button>
+        </div>
       </div>
 
       <div className="overflow-x-auto">
@@ -137,7 +146,8 @@ export function TablaUsuarios() {
             ) : (
               listaUsuarios.map((usuario) => {
                 const rolDelUsuario = rolesDisponibles.find(r => r.Id === usuario.RolId);
-                const nombreRol = rolDelUsuario ? rolDelUsuario.Name : 'Rol Desconocido';
+                // LECTURA CORREGIDA A RolName
+                const nombreRol = rolDelUsuario ? rolDelUsuario.RolName : 'Rol Desconocido';
 
                 return (
                   <tr key={usuario.Id} className="hover:bg-slate-50 transition-colors">
@@ -152,18 +162,26 @@ export function TablaUsuarios() {
                       </span>
                     </td>
                     <td className="p-4 text-center space-x-2">
-                      <button 
-                        onClick={() => abrirModalEditar(usuario)}
-                        className="text-sky-600 hover:text-sky-800 font-medium text-xs bg-sky-50 px-3 py-1.5 rounded transition-colors"
-                      >
-                        Editar
-                      </button>
-                      <button 
-                        onClick={() => desactivarUsuario(usuario.Id, usuario.Username)}
-                        className="text-rose-600 hover:text-rose-800 font-medium text-xs bg-rose-50 px-3 py-1.5 rounded transition-colors"
-                      >
-                        Desactivar
-                      </button>
+                      
+                      <div className="inline-block" title={!puedeGestionarUsuarios ? "Tu rol no tiene permiso para editar usuarios." : ""}>
+                        <button 
+                          onClick={() => abrirModalEditar(usuario)}
+                          disabled={!puedeGestionarUsuarios}
+                          className={`font-medium text-xs px-3 py-1.5 rounded transition-colors ${!puedeGestionarUsuarios ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-sky-50 text-sky-600 hover:text-sky-800'}`}
+                        >
+                          Editar
+                        </button>
+                      </div>
+
+                      <div className="inline-block" title={!puedeGestionarUsuarios ? "Tu rol no tiene permiso para desactivar accesos." : ""}>
+                        <button 
+                          onClick={() => desactivarUsuario(usuario.Id, usuario.Username)}
+                          disabled={!puedeGestionarUsuarios}
+                          className={`font-medium text-xs px-3 py-1.5 rounded transition-colors ${!puedeGestionarUsuarios ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-rose-50 text-rose-600 hover:text-rose-800'}`}
+                        >
+                          Desactivar
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

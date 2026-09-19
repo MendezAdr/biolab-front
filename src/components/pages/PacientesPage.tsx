@@ -7,7 +7,7 @@ export function PacientesPage() {
   return (
     <MainLayout>
       
-      <Title></Title>
+      
       <TablaPacientes />
       
     </MainLayout>

@@ -5,16 +5,24 @@ import type { Examen } from '../../types/ExamenModel';
 import type { ExamenCreateDTO } from '../../types/DTOs/ExamenCreateDTO';
 import type { ExamenUpdateDTO } from '../../types/DTOs/ExamenUpdateDTO';
 
+// 1. IMPORTAMOS EL CONTEXTO Y LOS PERMISOS
+import { useAuth } from '../../context/AuthContext';
+import { PERMISOS } from '../../types/AuthTypes';
+
 export function ExamenesMenu() {
+  // 2. EXTRAEMOS LA SESIÓN ACTUAL
+  const { usuario, tienePermiso } = useAuth();
+  const currentUserId = usuario?.id || 1; 
+  
+  // Evaluamos el permiso
+  const puedeGestionarExamenes = tienePermiso(PERMISOS.GESTIONAR_EXAMENES);
+
   const [listaExamenes, setListaExamenes] = useState<Examen[]>([]);
   const [cargando, setCargando] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Estados para controlar el modal
   const [modalAbierto, setModalAbierto] = useState(false);
   const [examenAEditar, setExamenAEditar] = useState<Examen | null>(null);
-
-  const currentUserId = 1; // ID del administrador para auditoría
 
   const cargarExamenes = async () => {
     try {
@@ -44,7 +52,6 @@ export function ExamenesMenu() {
     setModalAbierto(true);
   };
 
-  // Función para eliminar con advertencia irreversible
   const eliminarExamen = async (id: number, nombre: string) => {
     const confirmar = window.confirm(`⚠️ ADVERTENCIA IRREVERSIBLE\n\n¿Estás seguro que deseas eliminar el examen "${nombre}" del catálogo?\n\nEsta acción no se puede deshacer.`);
     
@@ -52,7 +59,7 @@ export function ExamenesMenu() {
         try {
             await examenesService.delete(id, currentUserId);
             alert("Examen eliminado correctamente.");
-            cargarExamenes(); // Refrescamos la tabla
+            cargarExamenes(); 
         } catch(err) {
             alert("Error al eliminar el examen. Asegúrate de tener los permisos necesarios o verifica que el examen no esté asociado a facturas previas.");
         }
@@ -93,12 +100,17 @@ export function ExamenesMenu() {
           <h2 className="text-lg font-semibold text-emerald-800">Catálogo de Exámenes</h2>
           <p className="text-sm text-slate-500">Administra los servicios que ofrece el laboratorio</p>
         </div>
-        <button 
-          onClick={abrirModalCrear}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer shadow-sm"
-        >
-          + Agregar Examen
-        </button>
+
+        {/* BOTÓN PROTEGIDO: Agregar Examen */}
+        <div className="inline-block" title={!puedeGestionarExamenes ? "No tienes permisos para agregar exámenes al catálogo." : ""}>
+          <button 
+            onClick={abrirModalCrear}
+            disabled={!puedeGestionarExamenes}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm ${!puedeGestionarExamenes ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer'}`}
+          >
+            + Agregar Examen
+          </button>
+        </div>
       </div>
 
       <div className="overflow-x-auto">
@@ -127,18 +139,29 @@ export function ExamenesMenu() {
                   <td className="p-4 text-slate-500 truncate max-w-xs">{examen.Descripcion || 'Sin descripción'}</td>
                   <td className="p-4 font-bold text-emerald-600 text-right">${examen.CostoEnDivisa}</td>
                   <td className="p-4 text-center space-x-2">
-                    <button 
-                      onClick={() => abrirModalEditar(examen)} 
-                      className="text-sky-600 hover:text-sky-800 font-medium text-xs bg-sky-50 px-3 py-1.5 rounded transition-colors"
-                    >
-                      Editar
-                    </button>
-                    <button 
-                      onClick={() => eliminarExamen(examen.Id, examen.NombreExamen)} 
-                      className="text-rose-600 hover:text-rose-800 font-medium text-xs bg-rose-50 px-3 py-1.5 rounded transition-colors"
-                    >
-                      Eliminar
-                    </button>
+                    
+                    {/* BOTÓN PROTEGIDO: Editar */}
+                    <div className="inline-block" title={!puedeGestionarExamenes ? "No tienes permisos para modificar exámenes." : ""}>
+                      <button 
+                        onClick={() => abrirModalEditar(examen)} 
+                        disabled={!puedeGestionarExamenes}
+                        className={`font-medium text-xs px-3 py-1.5 rounded transition-colors ${!puedeGestionarExamenes ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-sky-50 text-sky-600 hover:text-sky-800'}`}
+                      >
+                        Editar
+                      </button>
+                    </div>
+
+                    {/* BOTÓN PROTEGIDO: Eliminar */}
+                    <div className="inline-block" title={!puedeGestionarExamenes ? "No tienes permisos para eliminar exámenes." : ""}>
+                      <button 
+                        onClick={() => eliminarExamen(examen.Id, examen.NombreExamen)} 
+                        disabled={!puedeGestionarExamenes}
+                        className={`font-medium text-xs px-3 py-1.5 rounded transition-colors ${!puedeGestionarExamenes ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-rose-50 text-rose-600 hover:text-rose-800'}`}
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+
                   </td>
                 </tr>
               ))

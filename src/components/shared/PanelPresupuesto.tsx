@@ -4,7 +4,17 @@ import { examenesService } from '../../services/examenesService';
 import { tasaService } from '../../services/tasaService';
 import type { Examen } from '../../types/ExamenModel';
 
+// 1. IMPORTAMOS EL CONTEXTO Y LOS PERMISOS
+import { useAuth } from '../../context/AuthContext';
+import { PERMISOS } from '../../types/AuthTypes';
+
 export function PanelPresupuestos() {
+  // 2. EXTRAEMOS LA SESIÓN ACTUAL Y VERIFICAMOS PERMISOS
+  const { tienePermiso } = useAuth();
+  
+  const puedeCrearOrden = tienePermiso(PERMISOS.CREAR_ORDENES_Y_DETALLES);
+  const puedeGestionarPresupuestos = tienePermiso(PERMISOS.GESTIONAR_PRESUPUESTOS);
+
   const [examenesBD, setExamenesBD] = useState<Examen[]>([]);
   const [tasaBcv, setTasaBcv] = useState<number>(0);
   const [cargando, setCargando] = useState(true);
@@ -78,7 +88,6 @@ export function PanelPresupuestos() {
       return;
     }
     
-    // Empaquetamos toda la información necesaria para el módulo de impresiones
     const paqueteImpresion = {
       tipoDocumento: 'presupuesto',
       datos: {
@@ -91,7 +100,6 @@ export function PanelPresupuestos() {
       }
     };
 
-    // Navegamos al módulo de impresión enviando el paquete
     navigate('/impresiones', { state: paqueteImpresion });
   };
 
@@ -102,7 +110,6 @@ export function PanelPresupuestos() {
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* COLUMNA IZQUIERDA: Buscador */}
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
             <h3 className="font-bold text-slate-700 mb-4 border-b pb-2">Selección de Exámenes</h3>
@@ -136,7 +143,6 @@ export function PanelPresupuestos() {
           </div>
         </div>
 
-        {/* COLUMNA DERECHA: Resumen del Presupuesto */}
         <div className="lg:col-span-1">
           <div className="bg-slate-800 text-white p-5 rounded-xl shadow-lg sticky top-6">
             <h3 className="font-bold text-lg mb-4 border-b border-slate-600 pb-2">Detalle del Presupuesto</h3>
@@ -184,22 +190,28 @@ export function PanelPresupuestos() {
             </div>
 
             <div className="mt-6 space-y-2">
-              <button 
-                onClick={convertirAOrden}
-                disabled={carrito.length === 0}
-                className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors flex justify-center items-center gap-2"
-              >
-                <span>📝</span> Crear Orden
-              </button>
+              
+              {/* BOTÓN PROTEGIDO: Crear Orden */}
+              <div className="w-full" title={!puedeCrearOrden ? "Tu rol no tiene permiso para crear nuevas órdenes oficiales." : ""}>
+                <button 
+                  onClick={convertirAOrden}
+                  disabled={carrito.length === 0 || !puedeCrearOrden}
+                  className={`w-full font-bold py-3 rounded-lg transition-colors flex justify-center items-center gap-2 ${(!puedeCrearOrden || carrito.length === 0) ? 'bg-slate-600 text-slate-400 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-400 text-white'}`}
+                >
+                  <span>📝</span> Crear Orden
+                </button>
+              </div>
 
-              {/* AQUÍ ESTÁ EL BOTÓN ACTUALIZADO */}
-              <button 
-                onClick={enviarAImpresion}
-                disabled={carrito.length === 0}
-                className="w-full bg-sky-600 hover:bg-sky-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors flex justify-center items-center gap-2"
-              >
-                <span>🖨️</span> Generar PDF / Imprimir
-              </button>
+              {/* BOTÓN PROTEGIDO: Generar PDF */}
+              <div className="w-full" title={!puedeGestionarPresupuestos ? "Tu rol no tiene permiso para emitir presupuestos impresos." : ""}>
+                <button 
+                  onClick={enviarAImpresion}
+                  disabled={carrito.length === 0 || !puedeGestionarPresupuestos}
+                  className={`w-full font-bold py-3 rounded-lg transition-colors flex justify-center items-center gap-2 ${(!puedeGestionarPresupuestos || carrito.length === 0) ? 'bg-slate-600 text-slate-400 cursor-not-allowed' : 'bg-sky-600 hover:bg-sky-500 text-white'}`}
+                >
+                  <span>🖨️</span> Generar PDF / Imprimir
+                </button>
+              </div>
 
               <button 
                 onClick={limpiarPresupuesto}

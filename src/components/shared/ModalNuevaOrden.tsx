@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import type { OrdenCreateDTO } from '../../types/DTOs/OrdenCreateDTO'; 
 
+// 1. IMPORTAMOS EL CONTEXTO Y LOS PERMISOS
+import { useAuth } from '../../context/AuthContext';
+import { PERMISOS } from '../../types/AuthTypes';
+
 interface ModalNuevaOrdenProps {
   isOpen: boolean;               
   onClose: () => void;           
@@ -8,6 +12,10 @@ interface ModalNuevaOrdenProps {
 }
 
 export function ModalNuevaOrden({ isOpen, onClose, onGuardar }: ModalNuevaOrdenProps) {
+  // 2. VERIFICAMOS PERMISOS DENTRO DEL MODAL
+  const { tienePermiso } = useAuth();
+  const puedeCrearOrden = tienePermiso(PERMISOS.CREAR_ORDENES_Y_DETALLES);
+
   // Estados para los campos principales del DTO
   const [numeroFactura, setNumeroFactura] = useState('');
   const [pacienteId, setPacienteId] = useState<number>(0);
@@ -17,8 +25,6 @@ export function ModalNuevaOrden({ isOpen, onClose, onGuardar }: ModalNuevaOrdenP
   // Limpiar formulario al abrir
   useEffect(() => {
     if (isOpen) {
-      // En un entorno real, el Número de Factura podría autogenerarse en el backend. 
-      // Si debes enviarlo desde el front, lo simulamos aquí:
       setNumeroFactura(`ORD-${Math.floor(Math.random() * 9000) + 1000}`);
       setPacienteId(0);
       setTotalDivisa('');
@@ -36,15 +42,12 @@ export function ModalNuevaOrden({ isOpen, onClose, onGuardar }: ModalNuevaOrdenP
       return;
     }
 
-    // Construimos el DTO respetando la estructura estricta que espera C#
     const ordenCreada: OrdenCreateDTO = {
       NumeroFactura: numeroFactura,
       PacienteId: pacienteId,
       TotalDivisa: Number(totalDivisa),
       TasaBCV: Number(tasaBcv),
       Fecha: new Date(),
-      // Inicializamos las listas vacías para cumplir con el DTO. 
-      // Más adelante, aquí inyectarás los arreglos generados por sub-formularios.
       Detalles: [], 
       Pagos: []     
     };
@@ -121,9 +124,18 @@ export function ModalNuevaOrden({ isOpen, onClose, onGuardar }: ModalNuevaOrdenP
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100 rounded-lg transition-colors">
               Cancelar
             </button>
-            <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors shadow-sm">
-              Registrar Orden
-            </button>
+            
+            {/* BOTÓN PROTEGIDO: Registrar Orden */}
+            <div className="inline-block" title={!puedeCrearOrden ? "No posees los privilegios necesarios para emitir nuevas órdenes." : ""}>
+              <button 
+                type="submit" 
+                disabled={!puedeCrearOrden}
+                className={`px-4 py-2 text-sm font-medium rounded-lg shadow-sm transition-colors ${!puedeCrearOrden ? 'bg-slate-400 text-slate-200 cursor-not-allowed' : 'text-white bg-emerald-600 hover:bg-emerald-700'}`}
+              >
+                Registrar Orden
+              </button>
+            </div>
+
           </div>
         </form>
 

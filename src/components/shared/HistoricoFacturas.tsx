@@ -4,15 +4,24 @@ import { ordenesService } from '../../services/ordenesService';
 import { ModalDetallesFactura } from './ModalDetallesFactura';
 import type { Orden } from '../../types/OrdenesModel';
 
+// 1. IMPORTAMOS EL CONTEXTO Y LOS PERMISOS
+import { useAuth } from '../../context/AuthContext';
+import { PERMISOS } from '../../types/AuthTypes';
+
 export function HistoricoFacturas() {
+  // 2. EXTRAEMOS LA SESIÓN ACTUAL
+  const { usuario, tienePermiso } = useAuth();
+  const currentUserId = usuario?.id || 1; 
+
+  // Evaluamos el permiso
+  const puedeCrearOrdenes = tienePermiso(PERMISOS.CREAR_ORDENES_Y_DETALLES);
+
   const [listaFacturas, setListaFacturas] = useState<Orden[]>([]);
   const [cargando, setCargando] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Estado para controlar el modal de detalles
   const [facturaSeleccionadaId, setFacturaSeleccionadaId] = useState<number | null>(null);
 
-  const currentUserId = 1; 
   const navigate = useNavigate();
 
   const cargarHistorial = async () => {
@@ -33,17 +42,13 @@ export function HistoricoFacturas() {
     cargarHistorial();
   }, []);
 
-  // FUNCIÓN BLINDADA PARA FECHAS
   const formatearFechaSegura = (fechaString: any) => {
     if (!fechaString) return 'Fecha no disponible';
     const fechaObj = new Date(fechaString);
-    // Verificamos si el objeto fecha es inválido (isNaN)
     return isNaN(fechaObj.getTime()) ? 'Fecha inválida' : fechaObj.toLocaleDateString();
   };
 
-  // Función para manejar el botón de "Nueva Factura"
   const navegarANuevaFactura = () => {
-    // Aquí a futuro usarás React Router (ej. navigate('/nueva-factura')) o cambiarás el estado de la vista principal
     navigate('/nueva-orden');
   };
 
@@ -65,23 +70,24 @@ export function HistoricoFacturas() {
   return (
     <div className="space-y-6 p-2">
       
-      {/* Encabezado Principal */}
       <div className="flex justify-between items-center bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
         <div>
           <h2 className="text-xl font-bold text-slate-800">Histórico de Facturas</h2>
           <p className="text-sm text-slate-500">Consulta y reimpresión de órdenes registradas</p>
         </div>
         
-        {/* Este botón ya no abre un modal, sino que iniciará un flujo nuevo */}
-        <button 
-          onClick={navegarANuevaFactura}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-sm"
-        >
-          + Crear Nueva Factura
-        </button>
+        {/* BOTÓN PROTEGIDO: Crear Nueva Factura */}
+        <div className="inline-block" title={!puedeCrearOrdenes ? "No tienes permisos para emitir órdenes oficiales en el sistema." : ""}>
+          <button 
+            onClick={navegarANuevaFactura}
+            disabled={!puedeCrearOrdenes}
+            className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-sm ${!puedeCrearOrdenes ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer'}`}
+          >
+            + Crear Nueva Factura
+          </button>
+        </div>
       </div>
 
-      {/* Tabla Resumida de Historial */}
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -124,7 +130,6 @@ export function HistoricoFacturas() {
         </div>
       </div>
 
-      {/* Modal inyectado condicionalmente */}
       <ModalDetallesFactura 
         isOpen={facturaSeleccionadaId !== null} 
         ordenId={facturaSeleccionadaId}
