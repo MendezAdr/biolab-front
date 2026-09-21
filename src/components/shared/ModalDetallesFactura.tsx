@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ordenesService } from '../../services/ordenesService';
+import { pacienteService } from '../../services/pacienteService';
 import type { Orden } from '../../types/OrdenesModel';
 import { PagoMetodo, type Pago } from '../../types/PagoModel';
 
-// 1. IMPORTAMOS EL CONTEXTO Y LOS PERMISOS
 import { useAuth } from '../../context/AuthContext';
 import { PERMISOS } from '../../types/AuthTypes';
+import type { Paciente } from '../../types/PacienteModel';
 
 interface ModalDetallesFacturaProps {
   ordenId: number | null;
@@ -14,15 +16,18 @@ interface ModalDetallesFacturaProps {
 }
 
 export function ModalDetallesFactura({ ordenId, isOpen, onClose }: ModalDetallesFacturaProps) {
-  // 2. VERIFICAMOS PERMISOS DENTRO DEL MODAL
   const { usuario, tienePermiso } = useAuth();
   const currentUserId = usuario?.id || 1; 
 
   const puedeVerReportes = tienePermiso(PERMISOS.VER_REPORTES);
 
   const [ordenDetalle, setOrdenDetalle] = useState<Orden | null>(null);
+  // Estado para el nombre del paciente, inicializado como 'Cargando...'
+  const [nombrePaciente, setNombrePaciente] = useState<string>('Cargando...');
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (isOpen && ordenId) {
@@ -30,8 +35,29 @@ export function ModalDetallesFactura({ ordenId, isOpen, onClose }: ModalDetalles
         try {
           setCargando(true);
           setError(null);
+          
+          // 1. Cargamos la orden
           const data = await ordenesService.getById(ordenId, currentUserId);
           setOrdenDetalle(data);
+          
+          // 2. Cargamos el paciente de forma segura
+          if (data && data.PacienteId) {
+            try {
+               // Aquí se asume que pacienteService.getById existe y maneja Mocks
+               const pacienteData = await pacienteService.getById(data.PacienteId);
+               if (pacienteData && pacienteData.Nombre) {
+                   // Formateamos el nombre completo si es posible
+                   const nombreCompleto = `${pacienteData.Nombre} ${pacienteData.Apellido || ''}`.trim();
+                   setNombrePaciente(nombreCompleto);
+               } else {
+                   setNombrePaciente(`ID: ${data.PacienteId} (Nombre no disponible)`);
+               }
+            } catch(err) {
+               console.warn("No se pudo cargar el paciente para la orden:", data.PacienteId);
+               setNombrePaciente(`ID: ${data.PacienteId} (Desconocido)`);
+            }
+          }
+
         } catch (err) {
           console.error("Error al cargar detalles de la factura:", err);
           setError("No se pudieron cargar los detalles de esta factura.");
@@ -42,6 +68,7 @@ export function ModalDetallesFactura({ ordenId, isOpen, onClose }: ModalDetalles
       cargarDetalles();
     } else {
       setOrdenDetalle(null);
+      setNombrePaciente('Cargando...');
     }
   }, [isOpen, ordenId, currentUserId]);
 
@@ -49,6 +76,22 @@ export function ModalDetallesFactura({ ordenId, isOpen, onClose }: ModalDetalles
     if (!fechaString) return 'No disponible';
     const fechaObj = new Date(fechaString);
     return isNaN(fechaObj.getTime()) ? 'Inválida' : fechaObj.toLocaleString();
+  };
+
+  const manejarImpresion = () => {
+    if (!ordenDetalle) return;
+    
+    // Empaquetamos la orden y agregamos el nombre del paciente recuperado
+    const paqueteImpresion = {
+      tipoDocumento: 'factura',
+      datos: {
+          ...ordenDetalle,
+          PacienteNombre: nombrePaciente // Pasamos el nombre formateado al PDF
+      }
+    };
+
+    onClose();
+    navigate('/impresiones', { state: paqueteImpresion });
   };
 
   if (!isOpen) return null;
@@ -74,8 +117,9 @@ export function ModalDetallesFactura({ ordenId, isOpen, onClose }: ModalDetalles
             
             <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-100">
               <div>
-                <p className="text-xs text-slate-500 uppercase font-semibold">Paciente (ID)</p>
-                <p className="font-medium text-slate-800">{ordenDetalle.PacienteId}</p>
+                <p className="text-xs text-slate-500 uppercase font-semibold">Paciente</p>
+                {/* Mostramos el nombre formateado que calculamos en el useEffect */}
+                <p className="font-medium text-slate-800">{nombrePaciente}</p>
               </div>
               <div>
                 <p className="text-xs text-slate-500 uppercase font-semibold">Fecha de Emisión</p>
@@ -128,11 +172,10 @@ export function ModalDetallesFactura({ ordenId, isOpen, onClose }: ModalDetalles
               )}
             </div>
 
-            {/* BOTÓN PROTEGIDO: Impresión */}
             <div className="pt-4 flex justify-end">
               <div className="inline-block" title={!puedeVerReportes ? "No tienes permisos para reimprimir facturas o reportes antiguos." : ""}>
                 <button 
-                  onClick={() => alert('Módulo de impresión de comprobantes en desarrollo')}
+                  onClick={manejarImpresion}
                   disabled={!puedeVerReportes}
                   className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${!puedeVerReportes ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-sky-600 hover:bg-sky-700 text-white'}`}
                 >

@@ -8,7 +8,7 @@ import { EstadoPago } from '../types/DTOs/EstadoPagoEnum';
 const ordenesMockData = [
     {
         Id: 1,
-        PacienteId: 201,
+        PacienteId: 1,
         FechaCreacion: '2024-01-15T10:30:00Z',
         TotalDivisa: 150.00,
         EstadoPago: EstadoPago.Pagado,
@@ -24,7 +24,7 @@ const ordenesMockData = [
     },
     {
         Id: 2,
-        PacienteId: 202,
+        PacienteId: 2,
         FechaCreacion: '2024-01-16T11:00:00Z',
         TotalDivisa: 200.00,
         EstadoPago: EstadoPago.Pendiente,
@@ -37,7 +37,7 @@ const ordenesMockData = [
     },
     {
         Id: 3,
-        PacienteId: 203,
+        PacienteId: 3,
         FechaCreacion: '2024-01-17T09:45:00Z',
         TotalDivisa: 250.00,
         EstadoPago: EstadoPago.Pagado,

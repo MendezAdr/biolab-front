@@ -52,6 +52,9 @@ export function NuevaOrdenPanel() {
   const [montoPagoInput, setMontoPagoInput] = useState<string>('');
   const [referenciaPagoInput, setReferenciaPagoInput] = useState<string>('');
 
+  const seccionExamenesHabilitada = pacienteSeleccionado !== null || examenesCarrito.length > 0;
+  const requiereAtencionPaciente = examenesCarrito.length > 0 && !pacienteSeleccionado;
+
   const cargarDatosMaestros = async () => {
     try {
       setCargandoGlobal(true);
@@ -157,10 +160,10 @@ export function NuevaOrdenPanel() {
       alert("Faltan datos en la orden.");
       return;
     }
-    if (saldoRestante > 0) {
-      alert(`Aún hay un saldo pendiente de $${saldoRestante.toFixed(2)}. Complete el pago para procesar la orden.`);
-      return;
-    }
+    //if (saldoRestante > 0) {
+    //  alert(`Aún hay un saldo pendiente de $${saldoRestante.toFixed(2)}. Complete el pago para procesar la orden.`);
+    //  return;
+    // }
 
     const nuevaOrden: OrdenCreateDTO = {
       NumeroFactura: `ORD-${Date.now()}`, 
@@ -206,10 +209,11 @@ export function NuevaOrdenPanel() {
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
             <h3 className="font-bold text-slate-700 mb-4 border-b pb-2">1. Identificación del Paciente</h3>
             {pacienteSeleccionado ? (
+              // ... el cuadro verde del paciente seleccionado se queda igual ...
               <div className="flex justify-between items-center bg-emerald-50 border border-emerald-200 p-4 rounded-lg">
                 <div>
                   <p className="text-sm font-bold text-emerald-800">{pacienteSeleccionado.Nombre} {pacienteSeleccionado.Apellido}</p>
-                  <p className="text-xs text-emerald-600">C.I: {pacienteSeleccionado.Cedula}</p>
+                  <p className="text-xs text-emerald-700">C.I: {pacienteSeleccionado.Cedula}</p>
                 </div>
                 <button onClick={() => setPacienteSeleccionado(null)} className="text-xs text-rose-500 hover:underline">
                   Cambiar Paciente
@@ -222,8 +226,19 @@ export function NuevaOrdenPanel() {
                   placeholder="Ingrese Cédula del paciente..."
                   value={busquedaCedula}
                   onChange={(e) => setBusquedaCedula(e.target.value)}
-                  className="w-full border border-slate-300 text-slate-700 rounded-lg px-4 py-3 text-sm focus:border-emerald-500 focus:outline-none"
+                  // Clases dinámicas: Si requiere atención, el borde se hace más grueso y rojo
+                  className={`w-full rounded-lg px-4 py-3 text-sm text-slate-700 focus:outline-none transition-all duration-300 ${
+                    requiereAtencionPaciente 
+                      ? 'border-2 border-rose-400 bg-rose-50 placeholder-rose-300 focus:border-rose-500' 
+                      : 'border border-slate-300 bg-white focus:border-emerald-500'
+                  }`}
                 />
+                {/* Texto de ayuda no invasivo que aparece suavemente */}
+                {requiereAtencionPaciente && (
+                  <p className="text-xs text-rose-500 mt-2 font-medium animate-pulse">
+                    * Requerido para poder procesar la orden con los exámenes actuales.
+                  </p>
+                )}
                 {busquedaCedula.length >= 3 && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden">
                     {pacientesSugeridos.length > 0 ? (
@@ -256,23 +271,38 @@ export function NuevaOrdenPanel() {
             )}
           </div>
 
-          <div className={`bg-white p-5 rounded-xl border border-slate-200 shadow-sm transition-opacity ${!pacienteSeleccionado ? 'opacity-50 pointer-events-none' : ''}`}>
+          <div className={`bg-white p-5 rounded-xl border border-slate-200 shadow-sm transition-opacity ${!seccionExamenesHabilitada ? 'opacity-50 pointer-events-none' : ''}`}>
             <h3 className="font-bold text-slate-700 mb-4 border-b pb-2">2. Selección de Exámenes</h3>
             <input type="text" placeholder="🔍 Buscar examen (ej. Hematología)..." value={busquedaExamen} onChange={(e) => setBusquedaExamen(e.target.value)} className="w-full border border-slate-300 text-slate-700 rounded-lg px-4 py-2 text-sm mb-4 bg-slate-50" />
             <div className="max-h-64 overflow-y-auto border border-slate-100 rounded-lg">
-              {examenesFiltrados.map(examen => (
-                <div key={examen.Id} className="flex justify-between items-center p-3 hover:bg-slate-50 border-b border-slate-50">
-                  <div>
-                    <p className="text-sm font-medium text-slate-700">{examen.NombreExamen}</p>
+              {examenesFiltrados.map(examen => {
+                // Comprobamos en tiempo real si este examen ya existe en el carrito
+                const estaEnCarrito = examenesCarrito.some(e => e.Id === examen.Id);
+                
+                return (
+                  <div key={examen.Id} className="flex justify-between items-center p-3 hover:bg-slate-50 border-b border-slate-50">
+                    <div>
+                      <p className="text-sm font-medium text-slate-700">{examen.NombreExamen}</p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="font-bold text-emerald-600">${examen.CostoEnDivisa}</span>
+                      
+                      {/* Botón dinámico: Cambia de estilo y se desactiva si ya fue agregado */}
+                      <button 
+                        onClick={() => agregarAlCarrito(examen)} 
+                        disabled={estaEnCarrito}
+                        className={`px-3 py-1 rounded text-xs font-bold transition-colors ${
+                          estaEnCarrito 
+                            ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
+                            : 'text-white bg-slate-800 hover:bg-slate-700'
+                        }`}
+                      >
+                        {estaEnCarrito ? 'Añadido ✔️' : 'Añadir'}
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <span className="font-bold text-emerald-600">${examen.CostoEnDivisa}</span>
-                    <button onClick={() => agregarAlCarrito(examen)} className="text-white bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded text-xs font-bold transition-colors">
-                      Añadir
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -377,10 +407,14 @@ export function NuevaOrdenPanel() {
             <div className="w-full mt-6" title={!puedeCrearOrden ? "No tienes permisos para emitir órdenes oficiales en el sistema." : ""}>
               <button 
                 onClick={procesarOrdenFinal}
-                disabled={examenesCarrito.length === 0 || !pacienteSeleccionado || saldoRestante > 0 || !puedeCrearOrden}
-                className={`w-full font-bold py-3 rounded-lg transition-colors text-white ${(!puedeCrearOrden || examenesCarrito.length === 0 || !pacienteSeleccionado || saldoRestante > 0) ? 'bg-slate-600 cursor-not-allowed text-slate-400' : 'bg-emerald-500 hover:bg-emerald-400'}`}
-              >
-                {saldoRestante > 0 ? 'Complete el Pago para Guardar' : 'Procesar y Guardar Orden'}
+                disabled={examenesCarrito.length === 0 || !pacienteSeleccionado || !puedeCrearOrden}
+                className={`w-full font-bold py-3 rounded-lg transition-colors text-white ${(!puedeCrearOrden || examenesCarrito.length === 0 || !pacienteSeleccionado ) ? 'bg-slate-600 cursor-not-allowed text-slate-400' : 'bg-emerald-500 hover:bg-emerald-400'}`}
+              >{/* TEXTO DINÁMICO SEGÚN LA DEUDA */}
+                {saldoRestante === totalDivisa 
+                  ? 'Guardar como Pendiente' 
+                  : saldoRestante > 0 
+                    ? 'Procesar con Pago Parcial' 
+                    : 'Procesar y Guardar Orden'}
               </button>
             </div>
             

@@ -4,20 +4,24 @@ import { ordenesService } from '../../services/ordenesService';
 import { pacienteService } from '../../services/pacienteService';
 import { impresionesService, type ReporteCaja, type ReportePacientes, type ReporteMorosos } from '../../services/ImpresionesService';
 import { PDFViewer, PDFDownloadLink, Document, Page } from '@react-pdf/renderer';
+
+// Importaciones de las plantillas PDF
 import { ReporteCajaPDF } from '../pdf/ReporteCajaPDF';
 import { ReporteMorososPDF } from '../pdf/ReporteMorososPDF';
 import { PresupuestoPDF } from '../pdf/PresupuestoPDF';
 import { ReportePacientesPDF } from '../pdf/ReportePacientesPDF';
+// Asumiendo que crearás este archivo para darle estilo a la factura:
+import { FacturaPDF } from '../pdf/FacturaPDF'; 
+
 import { excelExportService } from '../../services/ExcelExportService';
 
-// 1. IMPORTAMOS EL CONTEXTO Y LOS PERMISOS
 import { useAuth } from '../../context/AuthContext';
 import { PERMISOS } from '../../types/AuthTypes';
 
-type TipoReporte = 'presupuesto' | 'cierre_diario' | 'cierre_fechas' | 'pacientes' | 'morosos' | null;
+// 1. Añadimos 'factura' a los tipos soportados
+type TipoReporte = 'presupuesto' | 'factura' | 'cierre_diario' | 'cierre_fechas' | 'pacientes' | 'morosos' | null;
 
 export function PanelImpresiones() {
-  // 2. EXTRAEMOS LA SESIÓN ACTUAL
   const { usuario, tienePermiso } = useAuth();
   const currentUserId = usuario?.id || 1; 
   const nombreUsuarioActual = usuario?.nombre || 'Operador Desconocido';
@@ -25,8 +29,10 @@ export function PanelImpresiones() {
   const location = useLocation();
   const paqueteExterno = location.state; 
 
+  // 2. Evaluamos si venimos del modal de facturas o de presupuestos
   const [tipoReporteSeleccionado, setTipoReporteSeleccionado] = useState<TipoReporte>(
-    paqueteExterno?.tipoDocumento === 'presupuesto' ? 'presupuesto' : 'cierre_diario'
+    paqueteExterno?.tipoDocumento === 'presupuesto' ? 'presupuesto' : 
+    paqueteExterno?.tipoDocumento === 'factura' ? 'factura' : 'cierre_diario'
   );
 
   const vistaPreviaRef = useRef<HTMLDivElement>(null);
@@ -37,13 +43,15 @@ export function PanelImpresiones() {
   const [reporteCaja, setReporteCaja] = useState<ReporteCaja | null>(null);
   const [reportePacientes, setReportePacientes] = useState<ReportePacientes | null>(null);
   const [reporteMorosos, setReporteMorosos] = useState<ReporteMorosos | null>(null);
+  
+  // 3. Extraemos los datos dependiendo de lo que haya llegado
   const datosPresupuesto = paqueteExterno?.tipoDocumento === 'presupuesto' ? paqueteExterno.datos : null;
+  const datosFactura = paqueteExterno?.tipoDocumento === 'factura' ? paqueteExterno.datos : null;
 
-  // ==========================================
-  // 3. EVALUACIÓN DINÁMICA DE PERMISOS
-  // ==========================================
+  // 4. Evaluación de permisos adaptada para facturas
   const evaluarPermisoNecesario = () => {
     if (datosPresupuesto) return tienePermiso(PERMISOS.GESTIONAR_PRESUPUESTOS);
+    if (datosFactura) return tienePermiso(PERMISOS.VER_REPORTES); 
     if (tipoReporteSeleccionado === 'cierre_diario' || tipoReporteSeleccionado === 'cierre_fechas') {
       return tienePermiso(PERMISOS.TOTALIZAR);
     }
@@ -53,8 +61,10 @@ export function PanelImpresiones() {
   const tienePermisoParaReporte = evaluarPermisoNecesario();
 
   const obtenerDocumentoPDF = () => {
-    if (reporteCaja && !datosPresupuesto) return <ReporteCajaPDF reporte={reporteCaja} usuarioNombre={nombreUsuarioActual} />;
+    if (datosFactura) return <FacturaPDF datos={datosFactura} usuarioNombre={nombreUsuarioActual} />;
     if (datosPresupuesto) return <PresupuestoPDF datos={datosPresupuesto} usuarioNombre={nombreUsuarioActual} />;
+    
+    if (reporteCaja && !datosPresupuesto && !datosFactura) return <ReporteCajaPDF reporte={reporteCaja} usuarioNombre={nombreUsuarioActual} />;
     if (reportePacientes) return <ReportePacientesPDF reporte={reportePacientes} usuarioNombre={nombreUsuarioActual} />;
     if (reporteMorosos) return <ReporteMorososPDF reporte={reporteMorosos} usuarioNombre={nombreUsuarioActual} />;
     return <Document><Page/></Document>; 
@@ -63,18 +73,17 @@ export function PanelImpresiones() {
   const manejarExportacionExcel = () => {
     if (reporteCaja) {
       excelExportService.exportarCaja(reporteCaja);
-    } else if (reporteMorosos) {
-      // excelExportService.exportarMorosos(reporteMorosos);
     }
   };
 
   const puedeExportarExcel = !!reporteCaja || !!reporteMorosos;
 
+  // Limpiamos el historial para que al recargar no se vuelva a montar el documento externo
   useEffect(() => {
-    if (datosPresupuesto) {
+    if (datosPresupuesto || datosFactura) {
       window.history.replaceState({}, document.title);
     }
-  }, [datosPresupuesto]);
+  }, [datosPresupuesto, datosFactura]);
 
   useEffect(() => {
     setReporteCaja(null);
@@ -130,7 +139,8 @@ export function PanelImpresiones() {
     }
   };
 
-  const hayReporteGenerado = reporteCaja || reportePacientes || reporteMorosos || datosPresupuesto;
+  // 5. Incluimos datosFactura en la comprobación
+  const hayReporteGenerado = reporteCaja || reportePacientes || reporteMorosos || datosPresupuesto || datosFactura;
   const mensajePermisoDenegado = "Tu rol no tiene permiso para procesar o visualizar esta categoría de reporte.";
 
   return (
@@ -153,9 +163,16 @@ export function PanelImpresiones() {
           <button onClick={() => setTipoReporteSeleccionado('pacientes')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition-colors ${tipoReporteSeleccionado === 'pacientes' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'text-slate-600 hover:bg-slate-50'}`}>
             👥 Directorio de Pacientes
           </button>
+          
+          {/* Indicadores de documentos externos */}
           {datosPresupuesto && (
             <div className="w-full text-left px-4 py-3 rounded-lg text-sm font-medium bg-sky-50 text-sky-700 border border-sky-200 mt-4">
                📄 Presupuesto Pendiente
+            </div>
+          )}
+          {datosFactura && (
+            <div className="w-full text-left px-4 py-3 rounded-lg text-sm font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 mt-4">
+               📄 Factura Seleccionada
             </div>
           )}
         </div>
@@ -194,12 +211,11 @@ export function PanelImpresiones() {
 
           <div className="flex justify-between border-t border-slate-100 pt-4">
             
-            {/* BOTÓN PROTEGIDO: Exportar a Excel */}
             <div className="inline-block" title={!tienePermisoParaReporte ? mensajePermisoDenegado : ""}>
               <button 
                 onClick={manejarExportacionExcel}
-                disabled={!puedeExportarExcel || datosPresupuesto !== null || !tienePermisoParaReporte}
-                className={`px-6 py-2 rounded-lg text-sm font-bold transition-colors ${(!puedeExportarExcel || datosPresupuesto !== null || !tienePermisoParaReporte) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800'}`}
+                disabled={!puedeExportarExcel || datosPresupuesto !== null || datosFactura !== null || !tienePermisoParaReporte}
+                className={`px-6 py-2 rounded-lg text-sm font-bold transition-colors ${(!puedeExportarExcel || datosPresupuesto !== null || datosFactura !== null || !tienePermisoParaReporte) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800'}`}
               >
                 📊 Exportar a Excel
               </button>
@@ -207,8 +223,8 @@ export function PanelImpresiones() {
 
             <div className="space-x-3 flex items-center">
               
-              {/* BOTÓN PROTEGIDO: Cargar Vista Previa */}
-              {!datosPresupuesto && (
+              {/* Ocultar botón de Cargar Vista Previa si estamos visualizando un documento externo */}
+              {!(datosPresupuesto || datosFactura) && (
                 <div className="inline-block" title={!tienePermisoParaReporte ? mensajePermisoDenegado : ""}>
                   <button 
                     onClick={manejarGenerarReporte} 
@@ -220,7 +236,6 @@ export function PanelImpresiones() {
                 </div>
               )}
               
-              {/* BOTÓN PROTEGIDO: Descargar PDF */}
               {hayReporteGenerado ? (
                 <div className="inline-block" title={!tienePermisoParaReporte ? mensajePermisoDenegado : ""}>
                   <PDFDownloadLink
@@ -252,15 +267,22 @@ export function PanelImpresiones() {
           
           <div className="h-[800px] w-full">
             
-            {reporteCaja && !datosPresupuesto && (
+            {/* 6. Renderizado de la Factura */}
+            {datosFactura && (
               <PDFViewer width="100%" height="100%" className="rounded-xl shadow-2xl border border-slate-300">
-                <ReporteCajaPDF reporte={reporteCaja} usuarioNombre={nombreUsuarioActual} />
+                <FacturaPDF datos={datosFactura} usuarioNombre={nombreUsuarioActual} />
               </PDFViewer>
             )}
 
             {datosPresupuesto && (
               <PDFViewer width="100%" height="100%" className="rounded-xl shadow-2xl border border-slate-300">
                 <PresupuestoPDF datos={datosPresupuesto} usuarioNombre={nombreUsuarioActual} />
+              </PDFViewer>
+            )}
+
+            {reporteCaja && !datosPresupuesto && !datosFactura && (
+              <PDFViewer width="100%" height="100%" className="rounded-xl shadow-2xl border border-slate-300">
+                <ReporteCajaPDF reporte={reporteCaja} usuarioNombre={nombreUsuarioActual} />
               </PDFViewer>
             )}
 
