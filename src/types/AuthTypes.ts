@@ -4,10 +4,10 @@ export interface UsuarioLogueado {
     nombre: string;
     apellido: string;
     rolNombre: string;
-    permisos: number[]; // El arreglo que ya viene de tu DTO: ej. [1, 16, 64]
+    // Ahora acepta el número (Bitmask del backend) o el arreglo (Mocks)
+    permisos: number | number[]; 
 }
 
-// Estos números coinciden con tu enum PermisosSistema del backend
 export const PERMISOS = {
     NINGUNO: 0,
     GESTIONAR_EXAMENES: 1,

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { PermisosSistema, type RolCreateDTO, type RolUpdateDTO, type RolResponseDTO } from '../../types/DTOs/RolDTOS';
 
 // 1. IMPORTAMOS EL CONTEXTO Y LOS PERMISOS
@@ -13,7 +14,6 @@ interface ModalRolProps {
 }
 
 export function ModalRol({ isOpen, onClose, onGuardar, rolExistente }: ModalRolProps) {
-  // 2. VERIFICAMOS PERMISOS DENTRO DEL MODAL
   const { tienePermiso } = useAuth();
   const puedeGestionarRoles = tienePermiso(PERMISOS.GESTIONAR_USUARIOS);
 
@@ -21,14 +21,14 @@ export function ModalRol({ isOpen, onClose, onGuardar, rolExistente }: ModalRolP
   const [permisosSeleccionados, setPermisosSeleccionados] = useState<number[]>([]);
 
   const esModoEdicion = !!rolExistente;
-
   const permisosVisuales = PermisosSistema.filter(p => p.id !== 0 && p.id !== 511);
 
   useEffect(() => {
     if (isOpen) {
       if (esModoEdicion && rolExistente) {
-        setNombre(rolExistente.RolName);
-        setPermisosSeleccionados(rolExistente.Permisos);
+        // EXTRACCIÓN SEGURA (camelCase)
+        setNombre(rolExistente.rolName ?? '');
+        setPermisosSeleccionados(rolExistente.permisos ?? []);
       } else {
         setNombre('');
         setPermisosSeleccionados([]);
@@ -39,7 +39,6 @@ export function ModalRol({ isOpen, onClose, onGuardar, rolExistente }: ModalRolP
   if (!isOpen) return null;
 
   const togglePermiso = (id: number) => {
-    // Si no tiene permisos, evitamos que siquiera pueda hacer clic en las casillas
     if (!puedeGestionarRoles) return; 
 
     setPermisosSeleccionados(prev => 
@@ -53,26 +52,27 @@ export function ModalRol({ isOpen, onClose, onGuardar, rolExistente }: ModalRolP
     e.preventDefault(); 
 
     if (!nombre.trim()) {
-      alert("El nombre del rol es obligatorio.");
+      toast.error("El nombre del rol es obligatorio.");
       return;
     }
 
     if (permisosSeleccionados.length === 0) {
-      alert("Debes asignar al menos un permiso al rol.");
+      toast.error("Debes asignar al menos un permiso al rol.");
       return;
     }
 
+    // PAYLOADS EN camelCase ESTRICTO
     if (esModoEdicion && rolExistente) {
       const rolActualizado: RolUpdateDTO = {
-        Id: rolExistente.Id,
-        Nombre: nombre,
-        Permisos: permisosSeleccionados
+        id: rolExistente.id,
+        nombre: nombre,
+        permisos: permisosSeleccionados
       };
       onGuardar(rolActualizado);
     } else {
       const nuevoRol: RolCreateDTO = {
-        Nombre: nombre,
-        Permisos: permisosSeleccionados
+        nombre: nombre,
+        permisos: permisosSeleccionados
       };
       onGuardar(nuevoRol);
     }
@@ -140,7 +140,6 @@ export function ModalRol({ isOpen, onClose, onGuardar, rolExistente }: ModalRolP
                  Cancelar
                </button>
                
-               {/* BOTÓN PROTEGIDO: Guardar Cambios */}
                <div className="inline-block" title={!puedeGestionarRoles ? "Solo los administradores pueden guardar configuraciones de seguridad." : ""}>
                  <button 
                    type="submit" 

@@ -1,6 +1,5 @@
-// Replicamos el Enum [Flags] de C# para usarlo en la UI
 export const PermisosSistema = [
-    { id: 0,   nombre: "ninguno (por defecto)" },
+    { id: 0,   nombre: "Ninguno (por defecto)" },
     { id: 1,   nombre: "Gestionar Examenes" },
     { id: 2,   nombre: "Gestionar Presupuestos" },
     { id: 4,   nombre: "Gestionar Pacientes" },
@@ -14,18 +13,18 @@ export const PermisosSistema = [
 ];
 
 export interface RolCreateDTO {
-    Nombre: string; // Coincide con RolCreateDTO.cs
-    Permisos: number[];
+    nombre: string; 
+    permisos: number[];
 }
 
 export interface RolUpdateDTO {
-    Id: number;
-    Nombre: string; // Coincide con RolUpdateDto.cs
-    Permisos: number[];
+    id: number;
+    nombre: string; 
+    permisos: number[];
 }
 
 export interface RolResponseDTO {
-    Id: number;
-    RolName: string; // Coincide con RolResponseDTO.cs
-    Permisos: number[];
+    id: number;
+    rolName: string; 
+    permisos: number[];
 }

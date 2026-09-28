@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { UsuarioCreateDTO } from '../../types/DTOs/UsuarioCreateDTO';
 import type { UsuarioUpdateDTO } from '../../types/DTOs/UsuarioUpdateDTO';
-// IMPORTACIÓN CORREGIDA
 import type { RolResponseDTO } from '../../types/DTOs/RolDTOS'; 
 import type { Usuario } from '../../types/UsuarioModel';
 
@@ -12,7 +11,6 @@ interface ModalNuevoUsuarioProps {
   isOpen: boolean;               
   onClose: () => void;           
   onGuardar: (datos: UsuarioCreateDTO | UsuarioUpdateDTO) => void; 
-  // PROP TIPADA CORRECTAMENTE
   roles: RolResponseDTO[]; 
   usuarioExistente: Usuario | null; 
 }
@@ -33,11 +31,12 @@ export function ModalNuevoUsuario({ isOpen, onClose, onGuardar, roles, usuarioEx
   useEffect(() => {
     if (isOpen) {
       if (esModoEdicion && usuarioExistente) {
-        setNombre(usuarioExistente.Nombre);
-        setApellido(usuarioExistente.Apellido);
-        setCedula(usuarioExistente.Cedula);
-        setUsername(usuarioExistente.Username);
-        setRolId(usuarioExistente.RolId);
+        // CORRECCIÓN: Lectura estricta en camelCase según el nuevo estándar
+        setNombre(usuarioExistente.nombre);
+        setApellido(usuarioExistente.apellido);
+        setCedula(usuarioExistente.cedula);
+        setUsername(usuarioExistente.username);
+        setRolId(usuarioExistente.rolId);
         setContrasena(''); 
       } else {
         setNombre(''); setApellido(''); setCedula(''); setUsername(''); setContrasena('');
@@ -56,14 +55,15 @@ export function ModalNuevoUsuario({ isOpen, onClose, onGuardar, roles, usuarioEx
       return;
     }
 
+    // CORRECCIÓN: Estructura del payload en estricto camelCase
     if (esModoEdicion && usuarioExistente) {
       const usuarioActualizado: UsuarioUpdateDTO = {
-        Id: usuarioExistente.Id,
-        Username: username,
-        Nombre: nombre,
-        Apellido: apellido,
-        Cedula: cedula,
-        RolId: rolId
+        id: usuarioExistente.id,
+        username: username,
+        nombre: nombre,
+        apellido: apellido,
+        cedula: cedula,
+        rolId: rolId
       };
       onGuardar(usuarioActualizado);
     } else {
@@ -72,12 +72,12 @@ export function ModalNuevoUsuario({ isOpen, onClose, onGuardar, roles, usuarioEx
         return;
       }
       const usuarioCreado: UsuarioCreateDTO = {
-        Username: username,
-        Nombre: nombre,
-        Apellido: apellido,
-        Cedula: cedula,
-        Contrasena: contrasena,
-        RolId: rolId, 
+        username: username,
+        nombre: nombre,
+        apellido: apellido,
+        cedula: cedula,
+        contrasena: contrasena,
+        rolId: rolId, 
       };
       onGuardar(usuarioCreado); 
     }
@@ -115,7 +115,7 @@ export function ModalNuevoUsuario({ isOpen, onClose, onGuardar, roles, usuarioEx
           <div className="grid grid-cols-2 gap-4">
              <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Usuario (Login) *</label>
-              <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 text-slate-700 focus:outline-none focus:border-emerald-500" />
+              <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} disabled={esModoEdicion} className={`w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 text-slate-700 focus:outline-none focus:border-emerald-500 ${esModoEdicion ? 'opacity-60 cursor-not-allowed' : ''}`} />
             </div>
             
             {!esModoEdicion && (
@@ -134,12 +134,14 @@ export function ModalNuevoUsuario({ isOpen, onClose, onGuardar, roles, usuarioEx
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 text-slate-700 focus:border-emerald-500 focus:outline-none"
             >
               <option value={0} disabled>Seleccione un rol...</option>
-              {roles.map((rol) => (
-                <option key={rol.Id} value={rol.Id}>
-                  {/* LECTURA CORREGIDA A RolName */}
-                  {rol.RolName}
-                </option>
-              ))}
+              {roles.map((rol: any) => {
+                // Extracción segura por si el DTO de roles aún no ha sido refactorizado
+                const rId = rol.id ?? rol.Id;
+                const rNombre = rol.rolName ?? rol.RolName ?? rol.nombre ?? "Rol Desconocido";
+                return (
+                  <option key={rId} value={rId}>{rNombre}</option>
+                );
+              })}
             </select>
           </div>
           

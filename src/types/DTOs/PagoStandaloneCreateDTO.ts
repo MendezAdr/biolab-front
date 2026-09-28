@@ -2,8 +2,8 @@
 
 
 export interface PagoStandaloneCreateDTO {
-    OrdenId    : number; // Vital para saber a qué factura se le está abonando
-    Monto      : number;
-    Metodo     : number;
-    Referencia : string;
+    ordenId    : number; // Vital para saber a qué factura se le está abonando
+    monto      : number;
+    metodo     : number;
+    referencia : string;
 }

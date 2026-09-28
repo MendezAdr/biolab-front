@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import toast, { Toaster } from 'react-hot-toast'; 
 import { usuariosService } from '../../services/usuarioService';
 import { rolService } from '../../services/rolService';
 import type { UsuarioCreateDTO } from '../../types/DTOs/UsuarioCreateDTO';
 import type { UsuarioUpdateDTO } from '../../types/DTOs/UsuarioUpdateDTO';
-// IMPORTACIÓN CORREGIDA
 import type { RolResponseDTO } from '../../types/DTOs/RolDTOS'; 
 import { ModalNuevoUsuario } from './ModalNuevoUsuario';
 import type { Usuario } from '../../types/UsuarioModel';
@@ -18,7 +18,6 @@ export function TablaUsuarios() {
   const puedeGestionarUsuarios = tienePermiso(PERMISOS.GESTIONAR_USUARIOS);
 
   const [listaUsuarios, setListaUsuarios] = useState<Usuario[]>([]); 
-  // ESTADO TIPADO CORRECTAMENTE
   const [rolesDisponibles, setRolesDisponibles] = useState<RolResponseDTO[]>([]); 
   
   const [cargando, setCargando] = useState<boolean>(true);
@@ -49,8 +48,13 @@ export function TablaUsuarios() {
   };
 
   useEffect(() => {
-    cargarDatosIniciales();
-  }, []);
+    // LA SOLUCIÓN: Si no tiene permisos, ni siquiera intentamos hacer la petición al backend
+    if (puedeGestionarUsuarios) {
+      cargarDatosIniciales();
+    } else {
+      setCargando(false);
+    }
+  }, [puedeGestionarUsuarios]);
 
   const abrirModalCrear = () => {
     setUsuarioAEditar(null);
@@ -62,34 +66,55 @@ export function TablaUsuarios() {
     setModalAbierto(true);
   };
 
-  const desactivarUsuario = async (id: number, username: string) => {
-    if(window.confirm(`⚠️ ADVERTENCIA: ¿Estás seguro que deseas desactivar el acceso al usuario "@${username}"?`)) {
+  const alternarEstadoUsuario = async (id: number, username: string, estadoActual: boolean) => {
+    const accion = estadoActual ? 'desactivar' : 'activar';
+    
+    if(window.confirm(`⚠️ ADVERTENCIA: ¿Estás seguro que deseas ${accion} el acceso al usuario "@${username}"?`)) {
       try {
-        await usuariosService.deactivate(id, currentUserId);
-        alert(`El usuario @${username} ha sido desactivado exitosamente.`);
+        if (estadoActual) {
+          await usuariosService.deactivate(id, currentUserId);
+        } else {
+          await usuariosService.activate(id, currentUserId);
+        }
+        toast.success(`La cuenta de @${username} ha sido ${estadoActual ? 'desactivada' : 'activada'} exitosamente.`);
         cargarDatosIniciales();
-      } catch (err) {
-        alert("Error al intentar desactivar la cuenta del usuario. Verifica tus permisos.");
+      } catch (err: any) {
+        toast.error(err.message || `Error al intentar ${accion} la cuenta.`);
       }
     }
   };
 
   const manejarGuardarUsuario = async (datos: UsuarioCreateDTO | UsuarioUpdateDTO) => {
-    try {
-      if ('Id' in datos) {
-        await usuariosService.updateUser(datos.Id, datos as UsuarioUpdateDTO, currentUserId);
-        alert("Perfil de usuario actualizado correctamente.");
-      } else {
-        await usuariosService.create(datos as UsuarioCreateDTO, currentUserId);
-        alert("Nuevo usuario registrado con éxito.");
+    toast.promise(
+      (async () => {
+        if ('id' in datos) {
+          await usuariosService.updateUser(datos.id, datos as UsuarioUpdateDTO, currentUserId);
+        } else {
+          await usuariosService.create(datos as UsuarioCreateDTO, currentUserId);
+        }
+        setModalAbierto(false);
+        await cargarDatosIniciales(); 
+      })(),
+      {
+        loading: 'Procesando usuario...',
+        success: '¡Registro guardado con éxito!',
+        error: (err) => err.message || 'Ocurrió un error al guardar los datos.',
       }
-      setModalAbierto(false);
-      cargarDatosIniciales(); 
-    } catch (err: any) {
-      console.error("Error al guardar usuario:", err);
-      alert("Ocurrió un error al intentar guardar los datos del usuario.");
-    }
+    );
   };
+
+  // PANTALLA DE PROTECCIÓN: Si no tiene permisos, mostramos esto y evitamos renderizar la tabla
+  if (!puedeGestionarUsuarios) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 bg-white border border-slate-200 rounded-xl shadow-sm mx-auto max-w-2xl mt-12 text-center">
+        <span className="text-6xl mb-4 opacity-80">🔒</span>
+        <h2 className="text-xl font-bold text-slate-800 mb-2">Acceso Restringido</h2>
+        <p className="text-slate-500">
+          Tu nivel de acceso actual no te permite visualizar ni administrar la información del personal del laboratorio.
+        </p>
+      </div>
+    );
+  }
 
   if (cargando) {
     return <div className="flex justify-center items-center h-64 text-slate-500">Cargando base de datos del personal...</div>;
@@ -109,17 +134,18 @@ export function TablaUsuarios() {
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm mx-auto max-w-5xl">
+      <Toaster position="bottom-right" reverseOrder={false} />
+      
       <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
         <div>
           <h2 className="text-lg font-semibold text-emerald-800">Control de Usuarios</h2>
           <p className="text-sm text-slate-500">Personal con acceso al sistema BioLab</p>
         </div>
         
-        <div className="inline-block" title={!puedeGestionarUsuarios ? "Tu rol no tiene permiso para administrar al personal." : ""}>
+        <div className="inline-block">
           <button 
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm ${!puedeGestionarUsuarios ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm bg-emerald-600 hover:bg-emerald-700 text-white"
             onClick={abrirModalCrear}
-            disabled={!puedeGestionarUsuarios}
           >
             + Registrar Personal
           </button>
@@ -130,8 +156,8 @@ export function TablaUsuarios() {
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-white text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
-              <th className="p-4">Nombre / Usuario</th>
-              <th className="p-4">Cédula</th>
+              <th className="p-4">Nombre y Apellido</th>
+              <th className="p-4">Usuario (Login)</th>
               <th className="p-4">Rol Asignado</th>
               <th className="p-4 text-center">Acciones</th>
             </tr>
@@ -140,48 +166,65 @@ export function TablaUsuarios() {
             {listaUsuarios.length === 0 ? (
               <tr>
                 <td colSpan={4} className="p-12 text-center text-slate-400">
-                  <p>No hay usuarios registrados en el sistema actualmente.</p>
+                  <p>No hay personal registrado en el sistema actualmente.</p>
                 </td>
               </tr>
             ) : (
-              listaUsuarios.map((usuario) => {
-                const rolDelUsuario = rolesDisponibles.find(r => r.Id === usuario.RolId);
-                // LECTURA CORREGIDA A RolName
-                const nombreRol = rolDelUsuario ? rolDelUsuario.RolName : 'Rol Desconocido';
+              listaUsuarios.map((user) => {
+                const id = user.id;
+                const nombreCompleto = `${user.nombre} ${user.apellido}`;
+                const username = user.username;
+                const isActive = user.isActive ?? (user as any).IsActive ?? true;
 
+                const rolEncontrado = rolesDisponibles.find(r => r.id === (user as any).rolId);
+                const rolNombre = rolEncontrado?.rolName ?? (user as any).rolName ?? (user as any).rolNombre ?? 'Sin Rol';
+                
                 return (
-                  <tr key={usuario.Id} className="hover:bg-slate-50 transition-colors">
+                  <tr key={id} className={`transition-colors ${!isActive ? 'bg-rose-50/40 opacity-75' : 'hover:bg-slate-50'}`}>
                     <td className="p-4">
-                      <div className="font-semibold text-slate-800">{usuario.Nombre} {usuario.Apellido}</div>
-                      <div className="text-xs text-slate-400">@{usuario.Username}</div>
+                      <div className="font-semibold text-slate-800">
+                        {nombreCompleto}
+                        {!isActive && (
+                          <span className="ml-2 text-[10px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                            Desactivado
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-slate-500 mt-0.5">{user.cedula}</div>
                     </td>
-                    <td className="p-4 font-medium text-slate-600">{usuario.Cedula}</td>
+                    <td className="p-4 font-medium text-emerald-700">@{username}</td>
                     <td className="p-4">
-                      <span className="bg-sky-50 text-sky-700 px-2.5 py-1 rounded text-xs font-medium border border-sky-100">
-                        {nombreRol}
+                      <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded text-xs font-medium border border-emerald-100">
+                        {rolNombre}
                       </span>
                     </td>
                     <td className="p-4 text-center space-x-2">
                       
-                      <div className="inline-block" title={!puedeGestionarUsuarios ? "Tu rol no tiene permiso para editar usuarios." : ""}>
+                      <div className="inline-block">
                         <button 
-                          onClick={() => abrirModalEditar(usuario)}
-                          disabled={!puedeGestionarUsuarios}
-                          className={`font-medium text-xs px-3 py-1.5 rounded transition-colors ${!puedeGestionarUsuarios ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-sky-50 text-sky-600 hover:text-sky-800'}`}
+                          onClick={() => abrirModalEditar(user)}
+                          className="font-medium text-xs px-3 py-1.5 rounded transition-colors bg-sky-50 text-sky-600 hover:text-sky-800"
                         >
                           Editar
                         </button>
                       </div>
 
-                      <div className="inline-block" title={!puedeGestionarUsuarios ? "Tu rol no tiene permiso para desactivar accesos." : ""}>
+                      <div className="inline-block" title={currentUserId === id ? "No puedes suspender tu propia cuenta activa." : ""}>
                         <button 
-                          onClick={() => desactivarUsuario(usuario.Id, usuario.Username)}
-                          disabled={!puedeGestionarUsuarios}
-                          className={`font-medium text-xs px-3 py-1.5 rounded transition-colors ${!puedeGestionarUsuarios ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-rose-50 text-rose-600 hover:text-rose-800'}`}
+                          onClick={() => alternarEstadoUsuario(id, username, isActive)}
+                          disabled={currentUserId === id} 
+                          className={`font-medium text-xs px-3 py-1.5 rounded transition-colors ${
+                            currentUserId === id
+                              ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                              : isActive 
+                                ? 'bg-rose-50 text-rose-600 hover:text-rose-800' 
+                                : 'bg-emerald-50 text-emerald-600 hover:text-emerald-800'
+                          }`}
                         >
-                          Desactivar
+                          {isActive ? 'Suspender' : 'Reactivar'}
                         </button>
                       </div>
+
                     </td>
                   </tr>
                 );

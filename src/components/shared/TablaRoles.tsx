@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import toast, { Toaster } from 'react-hot-toast';
 import { rolService } from '../../services/rolService';
 import type { RolCreateDTO, RolUpdateDTO, RolResponseDTO } from '../../types/DTOs/RolDTOS';
 import { ModalRol } from './ModalRoles';
 
-// 1. IMPORTAMOS EL CONTEXTO Y LOS PERMISOS
 import { useAuth } from '../../context/AuthContext';
 import { PERMISOS } from '../../types/AuthTypes';
 
 export function TablaRoles() {
-  // 2. EXTRAEMOS LA SESIÓN ACTUAL
   const { tienePermiso } = useAuth();
-  
-  // Asignamos la gestión de roles a los administradores de usuarios
   const puedeGestionarRoles = tienePermiso(PERMISOS.GESTIONAR_USUARIOS);
 
   const [listaRoles, setListaRoles] = useState<RolResponseDTO[]>([]);
@@ -53,43 +50,58 @@ export function TablaRoles() {
     if(window.confirm(`⚠️ ADVERTENCIA: ¿Estás seguro que deseas eliminar el rol "${nombre}"? Esta acción fallará si hay usuarios activos con este rol.`)) {
       try {
         await rolService.delete(id);
-        alert(`El rol ${nombre} ha sido eliminado exitosamente.`);
+        toast.success(`El rol ${nombre} ha sido eliminado exitosamente.`);
         cargarRoles();
       } catch (err: any) {
-        alert("No se pudo eliminar. Verifica que no existan usuarios que aún posean este rol asignado.");
+        toast.error(err.message || "No se pudo eliminar el rol especificado.");
       }
     }
   };
 
+  // SISTEMA DE PROMESA PARA ROLES
   const manejarGuardado = async (datos: RolCreateDTO | RolUpdateDTO) => {
-    try {
-      if ('Id' in datos) {
-        await rolService.update(datos.Id, datos as RolUpdateDTO);
-        alert("Privilegios del rol actualizados correctamente.");
-      } else {
-        await rolService.create(datos as RolCreateDTO);
-        alert("Nuevo rol registrado con éxito en el sistema.");
+    toast.promise(
+      (async () => {
+        if ('id' in datos) {
+          await rolService.update(datos.id, datos as RolUpdateDTO);
+        } else {
+          await rolService.create(datos as RolCreateDTO);
+        }
+        setModalAbierto(false);
+        await cargarRoles(); 
+      })(),
+      {
+        loading: 'Procesando configuración del rol...',
+        success: '¡Privilegios registrados con éxito!',
+        error: (err) => err.message || 'Ocurrió un error al guardar el rol.',
       }
-      setModalAbierto(false);
-      cargarRoles(); 
-    } catch (err: any) {
-      console.error("Error al guardar rol:", err);
-      alert("Ocurrió un error al procesar la solicitud de rol. Verifica que el nombre no esté duplicado.");
-    }
+    );
   };
 
   if (cargando) return <div className="flex justify-center items-center h-64 text-slate-500">Cargando niveles de acceso...</div>;
-  if (error) return <div className="p-6 text-rose-700 text-center">{error}</div>;
+  
+  if (error) {
+    return (
+      <div className="p-6 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-center mx-auto max-w-2xl mt-8">
+        <p className="font-semibold text-lg mb-2">Error de Conexión</p>
+        <p className="text-sm mb-4">{error}</p>
+        <button onClick={cargarRoles} className="px-4 py-2 bg-rose-100 hover:bg-rose-200 rounded-lg text-sm transition-colors">
+          Reintentar conexión
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm mx-auto max-w-4xl">
+      <Toaster position="bottom-right" reverseOrder={false} />
+
       <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
         <div>
           <h2 className="text-lg font-semibold text-sky-700">Gestión de Roles y Privilegios</h2>
           <p className="text-sm text-slate-500">Configuración granular de los niveles de acceso al sistema</p>
         </div>
         
-        {/* BOTÓN PROTEGIDO: Nuevo Rol */}
         <div className="inline-block" title={!puedeGestionarRoles ? "Solo el administrador puede definir nuevas jerarquías de seguridad." : ""}>
           <button 
             onClick={abrirModalCrear}
@@ -119,41 +131,46 @@ export function TablaRoles() {
                 </td>
               </tr>
             ) : (
-              listaRoles.map((rol) => (
-                <tr key={rol.Id} className="hover:bg-slate-50 transition-colors">
-                  <td className="p-4 font-mono font-medium text-slate-500">#{rol.Id}</td>
-                  <td className="p-4 font-bold text-slate-800">{rol.RolName}</td>
-                  <td className="p-4">
-                    <span className="bg-sky-50 text-sky-700 px-3 py-1 rounded-full text-xs font-semibold border border-sky-100">
-                      {rol.Permisos.length} privilegios asignados
-                    </span>
-                  </td>
-                  <td className="p-4 text-center space-x-2">
-                    
-                    {/* BOTÓN PROTEGIDO: Editar Rol */}
-                    <div className="inline-block" title={!puedeGestionarRoles ? "Acceso denegado. Se requiere nivel de administrador." : ""}>
-                      <button 
-                        onClick={() => abrirModalEditar(rol)}
-                        disabled={!puedeGestionarRoles}
-                        className={`font-medium text-xs px-3 py-1.5 rounded transition-colors ${!puedeGestionarRoles ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-sky-50 text-sky-600 hover:text-sky-800'}`}
-                      >
-                        Editar
-                      </button>
-                    </div>
+              listaRoles.map((rol) => {
+                // EXTRACCIÓN SEGURA (camelCase)
+                const id = rol.id;
+                const rolName = rol.rolName;
+                const permisos = rol.permisos || [];
 
-                    {/* BOTÓN PROTEGIDO: Eliminar Rol (y protegemos siempre el ID 1) */}
-                    <div className="inline-block" title={rol.Id === 1 ? "El rol de Administrador principal no puede ser eliminado." : !puedeGestionarRoles ? "Acceso denegado." : ""}>
-                      <button 
-                        onClick={() => eliminarRol(rol.Id, rol.RolName)}
-                        disabled={rol.Id === 1 || !puedeGestionarRoles}
-                        className={`font-medium text-xs px-3 py-1.5 rounded transition-colors ${(rol.Id === 1 || !puedeGestionarRoles) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-rose-50 text-rose-600 hover:text-rose-800'}`}
-                      >
-                        Eliminar
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+                return (
+                  <tr key={id} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-4 font-mono font-medium text-slate-500">#{id}</td>
+                    <td className="p-4 font-bold text-slate-800">{rolName}</td>
+                    <td className="p-4">
+                      <span className="bg-sky-50 text-sky-700 px-3 py-1 rounded-full text-xs font-semibold border border-sky-100">
+                        {permisos.length} privilegios asignados
+                      </span>
+                    </td>
+                    <td className="p-4 text-center space-x-2">
+                      
+                      <div className="inline-block" title={!puedeGestionarRoles ? "Acceso denegado. Se requiere nivel de administrador." : ""}>
+                        <button 
+                          onClick={() => abrirModalEditar(rol)}
+                          disabled={!puedeGestionarRoles}
+                          className={`font-medium text-xs px-3 py-1.5 rounded transition-colors ${!puedeGestionarRoles ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-sky-50 text-sky-600 hover:text-sky-800'}`}
+                        >
+                          Editar
+                        </button>
+                      </div>
+
+                      <div className="inline-block" title={id === 1 ? "El rol de Administrador principal no puede ser eliminado." : !puedeGestionarRoles ? "Acceso denegado." : ""}>
+                        <button 
+                          onClick={() => eliminarRol(id, rolName)}
+                          disabled={id === 1 || !puedeGestionarRoles}
+                          className={`font-medium text-xs px-3 py-1.5 rounded transition-colors ${(id === 1 || !puedeGestionarRoles) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-rose-50 text-rose-600 hover:text-rose-800'}`}
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

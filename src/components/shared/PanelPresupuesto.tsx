@@ -1,17 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import toast, { Toaster } from 'react-hot-toast'; // Integración de notificaciones elegantes
 import { examenesService } from '../../services/examenesService';
 import { tasaService } from '../../services/tasaService';
 import type { Examen } from '../../types/ExamenModel';
 
-// 1. IMPORTAMOS EL CONTEXTO Y LOS PERMISOS
+// IMPORTACIÓN DEL CONTEXTO Y LOS PERMISOS
 import { useAuth } from '../../context/AuthContext';
 import { PERMISOS } from '../../types/AuthTypes';
 
 export function PanelPresupuestos() {
-  // 2. EXTRAEMOS LA SESIÓN ACTUAL Y VERIFICAMOS PERMISOS
   const { tienePermiso } = useAuth();
   
+  // VERIFICACIÓN DE PERMISOS
   const puedeCrearOrden = tienePermiso(PERMISOS.CREAR_ORDENES_Y_DETALLES);
   const puedeGestionarPresupuestos = tienePermiso(PERMISOS.GESTIONAR_PRESUPUESTOS);
 
@@ -19,7 +20,6 @@ export function PanelPresupuestos() {
   const [tasaBcv, setTasaBcv] = useState<number>(0);
   const [cargando, setCargando] = useState(true);
   
-  // Estados del Presupuesto
   const [nombreCliente, setNombreCliente] = useState('');
   const [busquedaExamen, setBusquedaExamen] = useState('');
   const [carrito, setCarrito] = useState<Examen[]>([]);
@@ -27,41 +27,48 @@ export function PanelPresupuestos() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const cargarDatos = async () => {
-      try {
-        setCargando(true);
-        const [examenesRes, tasaRes] = await Promise.all([
-          examenesService.getAll(),
-          tasaService.getTasaActual()
-        ]);
-        setExamenesBD(examenesRes || []);
-        setTasaBcv(tasaRes || 0);
-      } catch (err) {
-        console.error("Error al cargar datos para presupuesto:", err);
-      } finally {
-        setCargando(false);
-      }
-    };
-    cargarDatos();
-  }, []);
+    // PREVENCIÓN DE PETICIONES INNECESARIAS: Solo cargamos datos si tiene acceso al módulo
+    if (puedeGestionarPresupuestos) {
+      const cargarDatos = async () => {
+        try {
+          setCargando(true);
+          const [examenesRes, tasaRes] = await Promise.all([
+            examenesService.getAll(),
+            tasaService.getTasaActual()
+          ]);
+          setExamenesBD(examenesRes || []);
+          setTasaBcv(tasaRes || 0);
+        } catch (err) {
+          toast.error("Error al cargar catálogo para presupuestos.");
+        } finally {
+          setCargando(false);
+        }
+      };
+      cargarDatos();
+    } else {
+      setCargando(false);
+    }
+  }, [puedeGestionarPresupuestos]);
 
   const examenesFiltrados = useMemo(() => {
     if (!busquedaExamen) return examenesBD;
     const busquedaLower = busquedaExamen.toLowerCase();
     return examenesBD.filter(e => {
-      const nombreSeguro = String(e.NombreExamen || '').toLowerCase();
+      // LECTURA EN camelCase CON CONTINGENCIA
+      const nombreSeguro = String(e.nombreExamen ?? (e as any).NombreExamen ?? '').toLowerCase();
       return nombreSeguro.includes(busquedaLower);
     });
   }, [busquedaExamen, examenesBD]);
 
   const agregarAlCarrito = (examen: Examen) => {
-    if (!carrito.find(e => e.Id === examen.Id)) {
+    const exId = examen.id ?? (examen as any).Id;
+    if (!carrito.find(e => (e.id ?? (e as any).Id) === exId)) {
       setCarrito([...carrito, examen]);
     }
   };
 
   const quitarDelCarrito = (idExamen: number) => {
-    setCarrito(carrito.filter(e => e.Id !== idExamen));
+    setCarrito(carrito.filter(e => (e.id ?? (e as any).Id) !== idExamen));
   };
 
   const limpiarPresupuesto = () => {
@@ -70,12 +77,9 @@ export function PanelPresupuestos() {
     setBusquedaExamen('');
   };
 
-  const totalDivisa = carrito.reduce((acc, ex) => acc + (ex.CostoEnDivisa || 0), 0);
+  // CÁLCULO ESTRICTO EN camelCase
+  const totalDivisa = carrito.reduce((acc, ex) => acc + (ex.costoEnDivisa ?? (ex as any).CostoEnDivisa ?? 0), 0);
   const totalBolivares = totalDivisa * tasaBcv;
-
-  // -----------------------------------------------------------------
-  // ACCIONES DE NAVEGACIÓN (Enviando datos de forma invisible)
-  // -----------------------------------------------------------------
   
   const convertirAOrden = () => {
     if (carrito.length === 0) return;
@@ -84,7 +88,7 @@ export function PanelPresupuestos() {
 
   const enviarAImpresion = () => {
     if (carrito.length === 0) {
-      alert("Agregue al menos un examen para generar el presupuesto.");
+      toast.error("Agregue al menos un examen para generar el presupuesto.");
       return;
     }
     
@@ -103,10 +107,24 @@ export function PanelPresupuestos() {
     navigate('/impresiones', { state: paqueteImpresion });
   };
 
+  // PANTALLA DE RESTRICCIÓN DE ACCESO
+  if (!puedeGestionarPresupuestos) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 bg-white border border-slate-200 rounded-xl shadow-sm mx-auto max-w-2xl mt-12 text-center">
+        <span className="text-6xl mb-4 opacity-80">🔒</span>
+        <h2 className="text-xl font-bold text-slate-800 mb-2">Acceso Restringido</h2>
+        <p className="text-slate-500">
+          Tu nivel de acceso actual no te permite generar ni administrar presupuestos en el sistema.
+        </p>
+      </div>
+    );
+  }
+
   if (cargando) return <div className="p-10 text-center animate-pulse text-slate-500">Cargando catálogo de exámenes...</div>;
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
+      <Toaster position="bottom-right" reverseOrder={false} />
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
@@ -125,20 +143,27 @@ export function PanelPresupuestos() {
             </div>
 
             <div className="max-h-[400px] overflow-y-auto border border-slate-100 rounded-lg">
-              {examenesFiltrados.map(examen => (
-                <div key={examen.Id} className="flex justify-between items-center p-3 hover:bg-slate-50 border-b border-slate-50">
-                  <div>
-                    <p className="text-sm font-medium text-slate-700">{examen.NombreExamen}</p>
-                    <p className="text-xs text-slate-500 max-w-md truncate">{examen.Descripcion || 'Sin descripción'}</p>
+              {examenesFiltrados.map(examen => {
+                const exId = examen.id ?? (examen as any).Id;
+                const nombreExamen = examen.nombreExamen ?? (examen as any).NombreExamen;
+                const descripcion = examen.descripcion ?? (examen as any).Descripcion;
+                const costo = examen.costoEnDivisa ?? (examen as any).CostoEnDivisa;
+
+                return (
+                  <div key={exId} className="flex justify-between items-center p-3 hover:bg-slate-50 border-b border-slate-50">
+                    <div>
+                      <p className="text-sm font-medium text-slate-700">{nombreExamen}</p>
+                      <p className="text-xs text-slate-500 max-w-md truncate">{descripcion || 'Sin descripción'}</p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="font-bold text-emerald-600">${costo}</span>
+                      <button onClick={() => agregarAlCarrito(examen)} className="text-white bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded text-xs font-bold transition-colors">
+                        Añadir
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <span className="font-bold text-emerald-600">${examen.CostoEnDivisa}</span>
-                    <button onClick={() => agregarAlCarrito(examen)} className="text-white bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded text-xs font-bold transition-colors">
-                      Añadir
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
@@ -162,15 +187,21 @@ export function PanelPresupuestos() {
               {carrito.length === 0 ? (
                 <p className="text-sm text-slate-400 text-center italic mt-10">Agregue exámenes al presupuesto.</p>
               ) : (
-                carrito.map(ex => (
-                  <div key={ex.Id} className="flex justify-between text-sm bg-slate-700 p-2 rounded">
-                    <span className="truncate pr-2">{ex.NombreExamen}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-emerald-400">${ex.CostoEnDivisa}</span>
-                      <button onClick={() => quitarDelCarrito(ex.Id)} className="text-rose-400 hover:text-rose-300 font-bold">✕</button>
+                carrito.map(ex => {
+                   const exId = ex.id ?? (ex as any).Id;
+                   const nombreExamen = ex.nombreExamen ?? (ex as any).NombreExamen;
+                   const costo = ex.costoEnDivisa ?? (ex as any).CostoEnDivisa;
+
+                   return (
+                    <div key={exId} className="flex justify-between text-sm bg-slate-700 p-2 rounded">
+                      <span className="truncate pr-2">{nombreExamen}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-emerald-400">${costo}</span>
+                        <button onClick={() => quitarDelCarrito(exId)} className="text-rose-400 hover:text-rose-300 font-bold">✕</button>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
 
@@ -191,7 +222,6 @@ export function PanelPresupuestos() {
 
             <div className="mt-6 space-y-2">
               
-              {/* BOTÓN PROTEGIDO: Crear Orden */}
               <div className="w-full" title={!puedeCrearOrden ? "Tu rol no tiene permiso para crear nuevas órdenes oficiales." : ""}>
                 <button 
                   onClick={convertirAOrden}
@@ -202,7 +232,6 @@ export function PanelPresupuestos() {
                 </button>
               </div>
 
-              {/* BOTÓN PROTEGIDO: Generar PDF */}
               <div className="w-full" title={!puedeGestionarPresupuestos ? "Tu rol no tiene permiso para emitir presupuestos impresos." : ""}>
                 <button 
                   onClick={enviarAImpresion}

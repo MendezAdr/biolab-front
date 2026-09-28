@@ -1,8 +1,8 @@
 export interface DetalleUpdateDTO {
 
-        Id                  : number;
-        OrdenId             : number;
-        ExamenId            : number;
-        PrecioMomentoDivisa : number;
+        id                  : number;
+        ordenId             : number;
+        examenId            : number;
+        precioMomentoDivisa : number;
 
 }

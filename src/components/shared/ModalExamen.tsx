@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast'; // Agregamos notificaciones elegantes
 import type { ExamenCreateDTO } from '../../types/DTOs/ExamenCreateDTO';
 import type { ExamenUpdateDTO } from '../../types/DTOs/ExamenUpdateDTO';
 import type { Examen } from '../../types/ExamenModel';
 
-// 1. IMPORTAMOS EL CONTEXTO Y LOS PERMISOS
 import { useAuth } from '../../context/AuthContext';
 import { PERMISOS } from '../../types/AuthTypes';
 
@@ -15,7 +15,6 @@ interface ModalExamenProps {
 }
 
 export function ModalExamen({ isOpen, onClose, onGuardar, examenExistente }: ModalExamenProps) {
-  // 2. VERIFICAMOS PERMISOS DENTRO DEL MODAL
   const { tienePermiso } = useAuth();
   const puedeGestionarExamenes = tienePermiso(PERMISOS.GESTIONAR_EXAMENES);
 
@@ -28,9 +27,10 @@ export function ModalExamen({ isOpen, onClose, onGuardar, examenExistente }: Mod
   useEffect(() => {
     if (isOpen) {
       if (esModoEdicion && examenExistente) {
-        setNombre(examenExistente.NombreExamen);
-        setCosto(examenExistente.CostoEnDivisa.toString());
-        setDescripcion(examenExistente.Descripcion || '');
+        // EXTRACCIÓN SEGURA (camelCase con contingencia)
+        setNombre(examenExistente.nombreExamen ?? (examenExistente as any).NombreExamen ?? '');
+        setCosto((examenExistente.costoEnDivisa ?? (examenExistente as any).CostoEnDivisa ?? 0).toString());
+        setDescripcion(examenExistente.descripcion ?? (examenExistente as any).Descripcion ?? '');
       } else {
         setNombre('');
         setCosto('');
@@ -45,23 +45,24 @@ export function ModalExamen({ isOpen, onClose, onGuardar, examenExistente }: Mod
     e.preventDefault(); 
 
     if (!nombre || !costo) {
-      alert("El nombre y el costo son obligatorios.");
+      toast.error("El nombre y el costo son obligatorios.");
       return;
     }
 
+    // PAYLOADS ESTRICTAMENTE EN camelCase
     if (esModoEdicion && examenExistente) {
       const examenActualizado: ExamenUpdateDTO = {
-        Id: examenExistente.Id,
-        NombreExamen: nombre,
-        CostoEnDivisa: Number(costo),
-        Descripcion: descripcion
+        id: examenExistente.id ?? (examenExistente as any).Id,
+        nombreExamen: nombre,
+        costoEnDivisa: Number(costo),
+        descripcion: descripcion
       };
       onGuardar(examenActualizado);
     } else {
       const nuevoExamen: ExamenCreateDTO = {
-        NombreExamen: nombre,
-        CostoEnDivisa: Number(costo),
-        Descripcion: descripcion
+        nombreExamen: nombre,
+        costoEnDivisa: Number(costo),
+        descripcion: descripcion
       };
       onGuardar(nuevoExamen);
     }
@@ -90,7 +91,8 @@ export function ModalExamen({ isOpen, onClose, onGuardar, examenExistente }: Mod
               type="text" 
               value={nombre} 
               onChange={(e) => setNombre(e.target.value)} 
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-slate-50" 
+              disabled={!puedeGestionarExamenes}
+              className={`w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 ${!puedeGestionarExamenes ? 'bg-slate-100 cursor-not-allowed' : 'bg-slate-50'}`} 
               placeholder="Ej. Perfil Tiroideo"
             />
           </div>
@@ -102,7 +104,8 @@ export function ModalExamen({ isOpen, onClose, onGuardar, examenExistente }: Mod
               step="0.01" 
               value={costo} 
               onChange={(e) => setCosto(e.target.value)} 
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-slate-50" 
+              disabled={!puedeGestionarExamenes}
+              className={`w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 ${!puedeGestionarExamenes ? 'bg-slate-100 cursor-not-allowed' : 'bg-slate-50'}`} 
               placeholder="0.00"
             />
           </div>
@@ -112,7 +115,8 @@ export function ModalExamen({ isOpen, onClose, onGuardar, examenExistente }: Mod
             <textarea 
               value={descripcion} 
               onChange={(e) => setDescripcion(e.target.value)} 
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-slate-50 h-20 resize-none" 
+              disabled={!puedeGestionarExamenes}
+              className={`w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 h-20 resize-none ${!puedeGestionarExamenes ? 'bg-slate-100 cursor-not-allowed' : 'bg-slate-50'}`} 
               placeholder="Detalles sobre el procedimiento o preparación requerida..."
             />
           </div>
@@ -122,7 +126,6 @@ export function ModalExamen({ isOpen, onClose, onGuardar, examenExistente }: Mod
               Cancelar
             </button>
             
-            {/* BOTÓN PROTEGIDO: Guardar Formulario */}
             <div className="inline-block" title={!puedeGestionarExamenes ? "No posees los privilegios necesarios para guardar estos cambios." : ""}>
               <button 
                 type="submit" 

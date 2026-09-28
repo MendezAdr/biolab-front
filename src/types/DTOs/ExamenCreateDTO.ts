@@ -1,5 +1,5 @@
 export interface ExamenCreateDTO {
-    NombreExamen  : string;
-    CostoEnDivisa : number;
-    Descripcion   : string;
+    nombreExamen  : string;
+    costoEnDivisa : number;
+    descripcion   : string;
 }

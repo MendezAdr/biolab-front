@@ -1,9 +1,8 @@
-
 export interface UsuarioUpdateDTO {
-    Id       : number;
-    Username : string;
-    Nombre   : string;
-    Apellido : string;
-    Cedula   : string;
-    RolId    : number;
+    id: number;
+    username: string;
+    nombre: string;
+    apellido: string;
+    cedula: string;
+    rolId: number;
 }

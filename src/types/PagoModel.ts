@@ -1,14 +1,11 @@
-// src/types/PagoModel.ts
-
 export interface Pago {
-    Id: number;
-    OrdenId: number;
-    Monto: number;
-    Metodo: number; // CORRECCIÓN: El backend envía un número entero
-    Referencia: string;
+    id: number;
+    ordenId: number;
+    monto: number;
+    metodo: number;
+    referencia: string;
 }
 
-// Este es tu diccionario de traducción
 export const PagoMetodo =  [
     { id: 1, metodo: "Punto de Venta" },
     { id: 2, metodo: "Pago Móvil" },

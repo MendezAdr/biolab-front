@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import toast, { Toaster } from 'react-hot-toast'; 
 import { pacienteService } from '../../services/pacienteService';
-import type { PacienteCreateDTO } from '../../types/DTOs/PacienteCreateDTO';
-import type { PacienteUpdateDTO } from '../../types/DTOs/PacienteUpdateDTO';
+import type { PacienteCreateDTO, PacienteUpdateDTO } from '../../types/DTOs/PacienteCreateDTO';
+
 import { ModalPaciente } from './ModalPaciente';
 import type { Paciente } from '../../types/PacienteModel';
 
@@ -19,7 +20,6 @@ export function TablaPacientes() {
 
   const [listaPacientes, setListaPacientes] = useState<Paciente[]>([]); 
   const [cargando, setCargando] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
   
   const [modalAbierto, setModalAbierto] = useState(false);
   const [pacienteAEditar, setPacienteAEditar] = useState<Paciente | null>(null);
@@ -27,11 +27,18 @@ export function TablaPacientes() {
   const cargarPacientes = async () => {
     try {
       setCargando(true);
-      setError(null); 
       const respuesta = await pacienteService.getAll();
-      setListaPacientes(respuesta || []); 
-    } catch (err) {
-      setError("No pudimos conectar con el servidor local para cargar el registro de pacientes.");
+      
+      const pacientesExtraidos = respuesta?.Data || respuesta?.data || respuesta;
+      
+      if (Array.isArray(pacientesExtraidos)) {
+          setListaPacientes(pacientesExtraidos);
+      } else {
+          setListaPacientes([]); 
+      }
+      
+    } catch (err: any) {
+      toast.error(err.message || "Fallo de conexión al cargar pacientes.");
     } finally {
       setCargando(false);
     }
@@ -51,47 +58,65 @@ export function TablaPacientes() {
     setModalAbierto(true);
   };
 
-  const desactivarPaciente = async (id: number, nombre: string) => {
+  /* const desactivarPaciente = async (id: number, nombre: string) => {
     if(window.confirm(`¿Estás seguro de que deseas desactivar el registro de ${nombre}?`)) {
       try {
         await pacienteService.deactivate(id, currentUserId);
-        alert("Paciente desactivado del sistema.");
+        toast.success("Paciente desactivado del sistema.");
         cargarPacientes();
-      } catch (err) {
-        alert("Error al intentar desactivar el paciente.");
+      } catch (err: any) {
+         toast.error(err.message || "Error al intentar desactivar el paciente.");
+      }
+    }
+  }; */
+  const alternarEstadoPaciente = async (id: number, nombre: string, estadoActual: boolean) => {
+    const accionText = estadoActual ? 'desactivar' : 'activar';
+    if(window.confirm(`¿Estás seguro de que deseas ${accionText} el registro de ${nombre}?`)) {
+      try {
+        if (estadoActual) {
+            await pacienteService.deactivate(id, currentUserId);
+        } else {
+            // Asumimos que pasar 'true' al método activate reactiva el registro
+            await pacienteService.activate(id, true, currentUserId); 
+        }
+        toast.success(`Paciente ${estadoActual ? 'desactivado' : 'activado'} correctamente.`);
+        cargarPacientes();
+      } catch (err: any) {
+         toast.error(err.message || `Error al intentar ${accionText} el paciente.`);
       }
     }
   };
-
   const manejarGuardado = async (datos: PacienteCreateDTO | PacienteUpdateDTO) => {
-    try {
-      if ('Id' in datos) {
-        await pacienteService.update(datos.Id, datos as PacienteUpdateDTO, currentUserId);
-        alert("Ficha de paciente actualizada correctamente.");
-      } else {
-        await pacienteService.create(datos as PacienteCreateDTO, currentUserId);
-        alert("Paciente registrado con éxito.");
+    toast.promise(
+      (async () => {
+        if ('id' in datos) {
+          await pacienteService.update(datos.id, datos as PacienteUpdateDTO, currentUserId);
+        } else {
+          await pacienteService.create(datos as PacienteCreateDTO, currentUserId);
+        }
+        setModalAbierto(false);
+        await cargarPacientes();
+      })(),
+      {
+        loading: 'Procesando paciente...',
+        success: '¡Registro actualizado con éxito!',
+        error: (err) => err.message || 'Ocurrió un error al guardar.', 
       }
-      setModalAbierto(false);
-      cargarPacientes(); 
-    } catch (err: any) {
-      console.error("Error al procesar paciente:", err);
-      alert("Ocurrió un error al intentar procesar la solicitud. Verifica la conexión o si la cédula ya existe.");
-    }
+    );
   };
 
   if (cargando) return <div className="flex justify-center items-center h-64 text-slate-500">Cargando base de datos...</div>;
-  if (error) return <div className="p-6 text-rose-700 text-center">{error}</div>;
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm mx-auto max-w-5xl">
+      <Toaster position="bottom-right" reverseOrder={false} />
+      
       <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
         <div>
           <h2 className="text-lg font-semibold text-sky-700">Lista de Pacientes</h2>
           <p className="text-sm text-slate-500">Registro histórico general del laboratorio</p>
         </div>
         
-        {/* BOTÓN PROTEGIDO: Nuevo Paciente */}
         <div className="inline-block" title={!puedeGestionarPacientes ? "Tu rol no tiene permiso para registrar pacientes." : ""}>
           <button 
             onClick={abrirModalCrear}
@@ -122,45 +147,71 @@ export function TablaPacientes() {
                 </td>
               </tr>
             ) : (
-              listaPacientes.map((paciente) => (
-                <tr key={paciente.Id} className="hover:bg-slate-50 transition-colors">
-                  <td className="p-4">
-                    <div className="font-semibold text-slate-800">{paciente.Nombre} {paciente.Apellido}</div>
-                  </td>
-                  <td className="p-4 font-medium text-slate-600">{paciente.Cedula}</td>
-                  <td className="p-4 text-slate-600">{paciente.Telefono}</td>
-                  <td className="p-4">
-                    <span className="bg-sky-50 text-sky-700 px-2.5 py-1 rounded text-xs font-medium border border-sky-100">
-                      {paciente.Sexo}
-                    </span>
-                  </td>
-                  <td className="p-4 text-center space-x-2">
-                    
-                    {/* BOTÓN PROTEGIDO: Editar */}
-                    <div className="inline-block" title={!puedeGestionarPacientes ? "Tu rol no tiene permiso para editar fichas." : ""}>
-                      <button 
-                        onClick={() => abrirModalEditar(paciente)}
-                        disabled={!puedeGestionarPacientes}
-                        className={`font-medium text-xs px-3 py-1.5 rounded transition-colors ${!puedeGestionarPacientes ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-sky-50 text-sky-600 hover:text-sky-800'}`}
-                      >
-                        Editar
-                      </button>
-                    </div>
+              listaPacientes.map((paciente) => {
+                const id = paciente.id;
+                const nombre =  paciente.nombre;
+                const apellido = paciente.apellido;
+                const cedula =  paciente.cedula;
+                const telefono = paciente.telefono;
+                const sexo = paciente.sexo;
+                
+                // Extraemos el estado (contingencia por si el backend lo manda en PascalCase)
+                const isActive = paciente.isActive ?? (paciente as any).IsActive ?? true;
 
-                    {/* BOTÓN PROTEGIDO: Desactivar */}
-                    <div className="inline-block" title={!puedeGestionarPacientes ? "Tu rol no tiene permiso para desactivar pacientes." : ""}>
-                      <button 
-                        onClick={() => desactivarPaciente(paciente.Id, paciente.Nombre)}
-                        disabled={!puedeGestionarPacientes}
-                        className={`font-medium text-xs px-3 py-1.5 rounded transition-colors ${!puedeGestionarPacientes ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-rose-50 text-rose-600 hover:text-rose-800'}`}
-                      >
-                        Desactivar
-                      </button>
-                    </div>
+                return (
+                  // Cambiamos el fondo y la opacidad si el paciente está inactivo
+                  <tr key={id} className={`transition-colors ${!isActive ? 'bg-rose-50/40 opacity-75' : 'hover:bg-slate-50'}`}>
+                    <td className="p-4">
+                      <div className="font-semibold text-slate-800">
+                        {nombre} {apellido}
+                        {/* Etiqueta visual para destacar inactivos */}
+                        {!isActive && (
+                          <span className="ml-2 text-[10px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                            Inactivo
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="p-4 font-medium text-slate-600">{cedula}</td>
+                    <td className="p-4 text-slate-600">{telefono}</td>
+                    <td className="p-4">
+                      <span className="bg-sky-50 text-sky-700 px-2.5 py-1 rounded text-xs font-medium border border-sky-100">
+                        {sexo}
+                      </span>
+                    </td>
+                    <td className="p-4 text-center space-x-2">
+                      
+                      <div className="inline-block" title={!puedeGestionarPacientes ? "Tu rol no tiene permiso para editar fichas." : ""}>
+                        <button 
+                          onClick={() => abrirModalEditar(paciente)}
+                          disabled={!puedeGestionarPacientes}
+                          className={`font-medium text-xs px-3 py-1.5 rounded transition-colors ${!puedeGestionarPacientes ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-sky-50 text-sky-600 hover:text-sky-800'}`}
+                        >
+                          Editar
+                        </button>
+                      </div>
 
-                  </td>
-                </tr>
-              ))
+                      {/* BOTÓN DINÁMICO: Cambia texto y color según el estado */}
+                      <div className="inline-block" title={!puedeGestionarPacientes ? "Tu rol no tiene permiso para alterar el estado." : ""}>
+                        <button 
+                          onClick={() => alternarEstadoPaciente(id, nombre, isActive)}
+                          disabled={!puedeGestionarPacientes}
+                          className={`font-medium text-xs px-3 py-1.5 rounded transition-colors ${
+                            !puedeGestionarPacientes 
+                              ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                              : isActive 
+                                ? 'bg-rose-50 text-rose-600 hover:text-rose-800' 
+                                : 'bg-emerald-50 text-emerald-600 hover:text-emerald-800'
+                          }`}
+                        >
+                          {isActive ? 'Desactivar' : 'Activar'}
+                        </button>
+                      </div>
+
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

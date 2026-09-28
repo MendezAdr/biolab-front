@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
+import toast, { Toaster } from 'react-hot-toast'; 
 import { pacienteService } from '../../services/pacienteService';
 import { examenesService } from '../../services/examenesService';
 import { tasaService } from '../../services/tasaService';
@@ -12,15 +13,11 @@ import { PagoMetodo } from '../../types/PagoModel';
 import type { Examen } from '../../types/ExamenModel'; 
 import type { Paciente } from '../../types/PacienteModel';
 
-// 1. IMPORTAMOS EL CONTEXTO GLOBAL DE SEGURIDAD
 import { useAuth } from '../../context/AuthContext';
 import { PERMISOS } from '../../types/AuthTypes';
 
 export function NuevaOrdenPanel() {
-  // 2. EXTRAEMOS EL USUARIO Y LA FUNCIÓN COMPROBADORA
   const { usuario, tienePermiso } = useAuth();
-  
-  // Usamos el ID real del usuario, o 1 como fallback de seguridad
   const currentUserId = usuario?.id || 1; 
 
   // ==========================================
@@ -74,13 +71,18 @@ export function NuevaOrdenPanel() {
   };
 
   useEffect(() => {
-    cargarDatosMaestros();
-  }, []);
+    // PROTECCIÓN: Solo cargamos datos si tiene acceso al módulo
+    if (puedeCrearOrden) {
+      cargarDatosMaestros();
+    } else {
+      setCargandoGlobal(false);
+    }
+  }, [puedeCrearOrden]);
 
   const pacientesSugeridos = useMemo(() => {
     if (!busquedaCedula || busquedaCedula.length < 3) return [];
     return pacientesBD.filter(p => {
-      const cedulaSegura = String(p.Cedula || p.Cedula || '').toLowerCase();
+      const cedulaSegura = String(p.cedula ?? (p as any).Cedula ?? '').toLowerCase();
       return cedulaSegura.includes(busquedaCedula.toLowerCase());
     });
   }, [busquedaCedula, pacientesBD]);
@@ -89,15 +91,15 @@ export function NuevaOrdenPanel() {
     if (!busquedaExamen) return examenesBD;
     const busquedaLower = busquedaExamen.toLowerCase();
     return examenesBD.filter(e => {
-      const nombreSeguro = String(e.NombreExamen || '').toLowerCase();
+      const nombreSeguro = String(e.nombreExamen ?? (e as any).NombreExamen ?? '').toLowerCase();
       return nombreSeguro.includes(busquedaLower);
     });
   }, [busquedaExamen, examenesBD]);
 
-  const totalDivisa = examenesCarrito.reduce((acc, ex) => acc + (ex.CostoEnDivisa || 0), 0);
+  const totalDivisa = examenesCarrito.reduce((acc, ex) => acc + (ex.costoEnDivisa ?? (ex as any).CostoEnDivisa ?? 0), 0);
   const totalBolivares = totalDivisa * tasaBcv;
   
-  const totalPagado = pagosAgregados.reduce((acc, pago) => acc + pago.Monto, 0);
+  const totalPagado = pagosAgregados.reduce((acc, pago) => acc + pago.monto, 0);
   const saldoRestante = totalDivisa - totalPagado;
 
   useEffect(() => {
@@ -109,27 +111,33 @@ export function NuevaOrdenPanel() {
   }, [saldoRestante]);
 
   const agregarAlCarrito = (examen: Examen) => {
-    if (!examenesCarrito.find(e => e.Id === examen.Id)) {
+    const idExamen = examen.id ?? (examen as any).Id;
+    if (!examenesCarrito.find(e => (e.id ?? (e as any).Id) === idExamen)) {
       setExamenesCarrito([...examenesCarrito, examen]);
     }
   };
 
   const quitarDelCarrito = (idExamen: number) => {
-    setExamenesCarrito(examenesCarrito.filter(e => e.Id !== idExamen));
+    setExamenesCarrito(examenesCarrito.filter(e => (e.id ?? (e as any).Id) !== idExamen));
     setPagosAgregados([]); 
   };
 
   const manejarGuardarPacienteInline = async (nuevoPaciente: PacienteCreateDTO) => {
-    try {
-      const pacienteGuardado = await pacienteService.create(nuevoPaciente, currentUserId);
-      await cargarDatosMaestros();
-      setPacienteSeleccionado(pacienteGuardado);
-      const cedulaSeguraParaElEstado = String(pacienteGuardado.Cedula || pacienteGuardado.cedula || nuevoPaciente.Cedula || '');
-      setBusquedaCedula(cedulaSeguraParaElEstado);
-      setModalPacienteAbierto(false);
-    } catch (err) {
-      alert("Error al registrar el paciente.");
-    }
+    toast.promise(
+      (async () => {
+        const pacienteGuardado = await pacienteService.create(nuevoPaciente, currentUserId);
+        await cargarDatosMaestros();
+        setPacienteSeleccionado(pacienteGuardado);
+        const cedulaSegura = String(pacienteGuardado.cedula ?? pacienteGuardado.Cedula ?? nuevoPaciente.cedula ?? '');
+        setBusquedaCedula(cedulaSegura);
+        setModalPacienteAbierto(false);
+      })(),
+      {
+        loading: 'Registrando paciente...',
+        success: 'Paciente registrado correctamente.',
+        error: (err) => err.message || 'Error al registrar el paciente.'
+      }
+    );
   };
 
   const agregarPago = () => {
@@ -138,14 +146,15 @@ export function NuevaOrdenPanel() {
 
     const requiereReferencia = [2, 3, 6].includes(metodoPagoSeleccionado);
     if (requiereReferencia && !referenciaPagoInput.trim()) {
-      alert("Este método de pago exige que ingrese un número de referencia.");
+      toast.error("Este método de pago exige que ingrese un número de referencia.");
       return;
     }
 
+    // MAPEO EN camelCase
     setPagosAgregados([...pagosAgregados, {
-      Monto: montoNum,
-      Metodo: metodoPagoSeleccionado,
-      Referencia: referenciaPagoInput
+      monto: montoNum,
+      metodo: metodoPagoSeleccionado,
+      referencia: referenciaPagoInput
     }]);
 
     setReferenciaPagoInput('');
@@ -157,41 +166,61 @@ export function NuevaOrdenPanel() {
 
   const procesarOrdenFinal = async () => {
     if (!pacienteSeleccionado || examenesCarrito.length === 0) {
-      alert("Faltan datos en la orden.");
+      toast.error("Faltan datos en la orden.");
       return;
     }
-    //if (saldoRestante > 0) {
-    //  alert(`Aún hay un saldo pendiente de $${saldoRestante.toFixed(2)}. Complete el pago para procesar la orden.`);
-    //  return;
-    // }
 
+    const pacienteId = pacienteSeleccionado.id ?? (pacienteSeleccionado as any).Id;
+
+    // PAYLOAD STRICTAMENTE EN camelCase
     const nuevaOrden: OrdenCreateDTO = {
-      NumeroFactura: `ORD-${Date.now()}`, 
-      PacienteId: pacienteSeleccionado.Id,
-      TotalDivisa: totalDivisa,
-      TasaBCV: tasaBcv,
-      Fecha: new Date(),
-      Detalles: examenesCarrito.map(ex => ({ ExamenId: ex.Id, PrecioMomentoDivisa: ex.CostoEnDivisa })),
-      Pagos: pagosAgregados 
+      numeroFactura: `ORD-${Date.now()}`, 
+      pacienteId: pacienteId,
+      totalDivisa: totalDivisa,
+      tasaBcv: tasaBcv,
+      fecha: new Date(),
+      detalles: examenesCarrito.map(ex => ({ 
+        examenId: ex.id ?? (ex as any).Id, 
+        precioMomentoDivisa: ex.costoEnDivisa ?? (ex as any).CostoEnDivisa 
+      })),
+      pagos: pagosAgregados 
     };
 
-    try {
-      await ordenesService.create(nuevaOrden, currentUserId);
-      alert("¡Orden registrada exitosamente!");
-      setPacienteSeleccionado(null);
-      setBusquedaCedula('');
-      setExamenesCarrito([]);
-      setPagosAgregados([]);
-    } catch (err) {
-      alert("Error crítico al procesar la orden.");
-    }
+    toast.promise(
+      (async () => {
+        await ordenesService.create(nuevaOrden, currentUserId);
+        setPacienteSeleccionado(null);
+        setBusquedaCedula('');
+        setExamenesCarrito([]);
+        setPagosAgregados([]);
+      })(),
+      {
+        loading: 'Procesando venta...',
+        success: '¡Orden registrada exitosamente!',
+        error: (err) => err.message || 'Error crítico al procesar la orden.'
+      }
+    );
   };
+
+  // PANTALLA DE RESTRICCIÓN DE ACCESO
+  if (!puedeCrearOrden) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 bg-white border border-slate-200 rounded-xl shadow-sm mx-auto max-w-2xl mt-12 text-center">
+        <span className="text-6xl mb-4 opacity-80">🔒</span>
+        <h2 className="text-xl font-bold text-slate-800 mb-2">Acceso Restringido</h2>
+        <p className="text-slate-500">
+          Tu nivel de acceso actual no te permite facturar ni emitir nuevas órdenes en el sistema.
+        </p>
+      </div>
+    );
+  }
 
   if (cargandoGlobal) return <div className="p-10 text-center animate-pulse text-slate-500">Inicializando sistema de facturación...</div>;
   if (errorGlobal) return <div className="p-10 text-center text-red-600">{errorGlobal}</div>;
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 p-4">
+      <Toaster position="bottom-right" />
       <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
         <div>
           <h2 className="text-xl font-bold text-slate-800">Nueva Orden de Laboratorio</h2>
@@ -209,11 +238,10 @@ export function NuevaOrdenPanel() {
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
             <h3 className="font-bold text-slate-700 mb-4 border-b pb-2">1. Identificación del Paciente</h3>
             {pacienteSeleccionado ? (
-              // ... el cuadro verde del paciente seleccionado se queda igual ...
               <div className="flex justify-between items-center bg-emerald-50 border border-emerald-200 p-4 rounded-lg">
                 <div>
-                  <p className="text-sm font-bold text-emerald-800">{pacienteSeleccionado.Nombre} {pacienteSeleccionado.Apellido}</p>
-                  <p className="text-xs text-emerald-700">C.I: {pacienteSeleccionado.Cedula}</p>
+                  <p className="text-sm font-bold text-emerald-800">{pacienteSeleccionado.nombre ?? (pacienteSeleccionado as any).Nombre} {pacienteSeleccionado.apellido ?? (pacienteSeleccionado as any).Apellido}</p>
+                  <p className="text-xs text-emerald-700">C.I: {pacienteSeleccionado.cedula ?? (pacienteSeleccionado as any).Cedula}</p>
                 </div>
                 <button onClick={() => setPacienteSeleccionado(null)} className="text-xs text-rose-500 hover:underline">
                   Cambiar Paciente
@@ -226,14 +254,12 @@ export function NuevaOrdenPanel() {
                   placeholder="Ingrese Cédula del paciente..."
                   value={busquedaCedula}
                   onChange={(e) => setBusquedaCedula(e.target.value)}
-                  // Clases dinámicas: Si requiere atención, el borde se hace más grueso y rojo
                   className={`w-full rounded-lg px-4 py-3 text-sm text-slate-700 focus:outline-none transition-all duration-300 ${
                     requiereAtencionPaciente 
                       ? 'border-2 border-rose-400 bg-rose-50 placeholder-rose-300 focus:border-rose-500' 
                       : 'border border-slate-300 bg-white focus:border-emerald-500'
                   }`}
                 />
-                {/* Texto de ayuda no invasivo que aparece suavemente */}
                 {requiereAtencionPaciente && (
                   <p className="text-xs text-rose-500 mt-2 font-medium animate-pulse">
                     * Requerido para poder procesar la orden con los exámenes actuales.
@@ -243,17 +269,19 @@ export function NuevaOrdenPanel() {
                   <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden">
                     {pacientesSugeridos.length > 0 ? (
                       pacientesSugeridos.map((p, index) => {
-                        const idSeguro = p.Id || index;
+                        const idSeguro = p.id ?? (p as any).Id ?? index;
+                        const cedula = p.cedula ?? (p as any).Cedula;
+                        const nombre = p.nombre ?? (p as any).Nombre;
+                        const apellido = p.apellido ?? (p as any).Apellido;
                         return (
                           <div key={idSeguro} onClick={() => setPacienteSeleccionado(p)} className="p-3 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0">
-                            <span className="font-semibold text-sm">{p.Cedula}</span> - <span className="text-sm text-slate-600">{p.Nombre} {p.Apellido}</span>
+                            <span className="font-semibold text-sm">{cedula}</span> - <span className="text-sm text-slate-600">{nombre} {apellido}</span>
                           </div>
                         );
                       })
                     ) :(
                       <div className="p-4 text-center">
                         <p className="text-sm text-slate-500 mb-3">No hay pacientes con esa cédula.</p>
-                        {/* BOTÓN PROTEGIDO 1: Registrar Paciente */}
                         <div className="inline-block" title={!puedeCrearPaciente ? "Tu rol no tiene permiso para registrar pacientes nuevos." : ""}>
                           <button 
                             onClick={() => setModalPacienteAbierto(true)} 
@@ -276,18 +304,19 @@ export function NuevaOrdenPanel() {
             <input type="text" placeholder="🔍 Buscar examen (ej. Hematología)..." value={busquedaExamen} onChange={(e) => setBusquedaExamen(e.target.value)} className="w-full border border-slate-300 text-slate-700 rounded-lg px-4 py-2 text-sm mb-4 bg-slate-50" />
             <div className="max-h-64 overflow-y-auto border border-slate-100 rounded-lg">
               {examenesFiltrados.map(examen => {
-                // Comprobamos en tiempo real si este examen ya existe en el carrito
-                const estaEnCarrito = examenesCarrito.some(e => e.Id === examen.Id);
+                const exId = examen.id ?? (examen as any).Id;
+                const nombreExamen = examen.nombreExamen ?? (examen as any).NombreExamen;
+                const costo = examen.costoEnDivisa ?? (examen as any).CostoEnDivisa;
+                const estaEnCarrito = examenesCarrito.some(e => (e.id ?? (e as any).Id) === exId);
                 
                 return (
-                  <div key={examen.Id} className="flex justify-between items-center p-3 hover:bg-slate-50 border-b border-slate-50">
+                  <div key={exId} className="flex justify-between items-center p-3 hover:bg-slate-50 border-b border-slate-50">
                     <div>
-                      <p className="text-sm font-medium text-slate-700">{examen.NombreExamen}</p>
+                      <p className="text-sm font-medium text-slate-700">{nombreExamen}</p>
                     </div>
                     <div className="flex items-center gap-4">
-                      <span className="font-bold text-emerald-600">${examen.CostoEnDivisa}</span>
+                      <span className="font-bold text-emerald-600">${costo}</span>
                       
-                      {/* Botón dinámico: Cambia de estilo y se desactiva si ya fue agregado */}
                       <button 
                         onClick={() => agregarAlCarrito(examen)} 
                         disabled={estaEnCarrito}
@@ -325,7 +354,6 @@ export function NuevaOrdenPanel() {
                 <input type="text" value={referenciaPagoInput} onChange={(e) => setReferenciaPagoInput(e.target.value)} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white" placeholder="N/A" />
               </div>
               
-              {/* BOTÓN PROTEGIDO 2: Añadir Pago */}
               <div className="inline-block" title={!puedeRegistrarPagos ? "Tu rol no tiene permiso para procesar pagos ni manejar caja." : ""}>
                 <button 
                   onClick={agregarPago} 
@@ -340,15 +368,15 @@ export function NuevaOrdenPanel() {
             {pagosAgregados.length > 0 && (
               <div className="space-y-2">
                 {pagosAgregados.map((p, index) => {
-                  const nombreMetodo = PagoMetodo.find(m => m.id === p.Metodo)?.metodo || 'Desconocido';
+                  const nombreMetodo = PagoMetodo.find(m => m.id === p.metodo)?.metodo || 'Desconocido';
                   return (
                     <div key={index} className="flex justify-between items-center bg-white border border-slate-200 p-2 rounded-lg text-sm">
                       <div>
                         <span className="font-semibold text-slate-700">{nombreMetodo}</span>
-                        {p.Referencia && <span className="text-slate-400 ml-2">(Ref: {p.Referencia})</span>}
+                        {p.referencia && <span className="text-slate-400 ml-2">(Ref: {p.referencia})</span>}
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="font-bold text-sky-700">${p.Monto.toFixed(2)}</span>
+                        <span className="font-bold text-sky-700">${p.monto.toFixed(2)}</span>
                         <button onClick={() => quitarPago(index)} className="text-rose-500 hover:text-rose-700 font-bold">✕</button>
                       </div>
                     </div>
@@ -367,15 +395,20 @@ export function NuevaOrdenPanel() {
               {examenesCarrito.length === 0 ? (
                 <p className="text-sm text-slate-400 text-center italic mt-10">Aún no hay exámenes añadidos.</p>
               ) : (
-                examenesCarrito.map(ex => (
-                  <div key={ex.Id} className="flex justify-between text-sm bg-slate-700 p-2 rounded">
-                    <span className="truncate pr-2">{ex.NombreExamen}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-emerald-400">${ex.CostoEnDivisa}</span>
-                      <button onClick={() => quitarDelCarrito(ex.Id)} className="text-rose-400 hover:text-rose-300 font-bold">✕</button>
+                examenesCarrito.map(ex => {
+                  const exId = ex.id ?? (ex as any).Id;
+                  const nombreExamen = ex.nombreExamen ?? (ex as any).NombreExamen;
+                  const costo = ex.costoEnDivisa ?? (ex as any).CostoEnDivisa;
+                  return (
+                    <div key={exId} className="flex justify-between text-sm bg-slate-700 p-2 rounded">
+                      <span className="truncate pr-2">{nombreExamen}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-emerald-400">${costo}</span>
+                        <button onClick={() => quitarDelCarrito(exId)} className="text-rose-400 hover:text-rose-300 font-bold">✕</button>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
 
@@ -403,13 +436,12 @@ export function NuevaOrdenPanel() {
               </div>
             </div>
 
-            {/* BOTÓN PROTEGIDO 3: Crear Orden Final */}
             <div className="w-full mt-6" title={!puedeCrearOrden ? "No tienes permisos para emitir órdenes oficiales en el sistema." : ""}>
               <button 
                 onClick={procesarOrdenFinal}
                 disabled={examenesCarrito.length === 0 || !pacienteSeleccionado || !puedeCrearOrden}
                 className={`w-full font-bold py-3 rounded-lg transition-colors text-white ${(!puedeCrearOrden || examenesCarrito.length === 0 || !pacienteSeleccionado ) ? 'bg-slate-600 cursor-not-allowed text-slate-400' : 'bg-emerald-500 hover:bg-emerald-400'}`}
-              >{/* TEXTO DINÁMICO SEGÚN LA DEUDA */}
+              >
                 {saldoRestante === totalDivisa 
                   ? 'Guardar como Pendiente' 
                   : saldoRestante > 0 

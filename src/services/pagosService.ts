@@ -1,102 +1,153 @@
-import { apiClient } from '../config/ApiClient';
-import { AppConfig } from '../config/ApiClient';
-import type { PagoUpdateDTO } from '../types/DTOs/PagoUpdateDTO'; // Importado según tu estructura[cite: 32]
+import { apiClient, AppConfig } from '../config/ApiClient';
+import type { PagoUpdateDTO } from '../types/DTOs/PagoUpdateDTO'; 
 import type { PagoStandaloneCreateDTO } from '../types/DTOs/PagoStandaloneCreateDTO'; 
 
+// Mocks adaptados a camelCase
 const pagosMockData = [
+    { id: 1, ordenId: 101, monto: 50.00, metodo: 1, referencia: 'ABC123XYZ' },
+    { id: 2, ordenId: 102, monto: 75.00, metodo: 2, referencia: 'DEF456UVW' }, 
+    { id: 3, ordenId: 103, monto: 100.00, metodo: 3, referencia: 'GHI789RST' }
+];
 
-    {
-        Id: 1,
-        OrdenId: 101,
-        Monto: 50.00,
-        Metodo: 1,
-        Referencia: 'ABC123XYZ'
-    },
-    {
-        Id: 2,
-        OrdenId: 102,
-        Monto: 75.00,
-        Metodo: 2,
-        Referencia: 'DEF456UVW'
+// Interceptor global de Errores 400
+const manejarErrorHttp = (error: any, mensajePorDefecto: string) => {
+    if (error.response?.status === 400 && error.response?.data?.errors) {
+        const errores = error.response.data.errors;
+        const campo = Object.keys(errores)[0];
+        let mensajeValidacion = errores[campo][0];
 
-    }, 
-    {
-        Id: 3,
-        OrdenId: 103,
-        Monto: 100.00,
-        Metodo: 3,
-        Referencia: 'GHI789RST'
+        if (mensajeValidacion.includes("is required")) {
+            mensajeValidacion = "Este campo es obligatorio.";
+        } else if (mensajeValidacion.includes("maximum length")) {
+            const match = mensajeValidacion.match(/maximum length of '(\d+)'/);
+            const limite = match ? match[1] : "permitidos";
+            mensajeValidacion = `No puede exceder los ${limite} caracteres.`;
+        }
+
+        throw new Error(`Error en '${campo}': ${mensajeValidacion}`);
     }
-]
+
+    const data = error.response?.data;
+    const mensajeBackend = data?.Message ?? data?.message ?? data?.Mensaje ?? data?.mensaje;
+    throw new Error(mensajeBackend || error.message || mensajePorDefecto);
+};
 
 export const pagosService = {
     // --------------------------------------------------------
-    // MÉTODOS GET (Públicos / Sin auditoría estricta)
+    // MÉTODOS GET
     // --------------------------------------------------------
     
     getById: async (id: number) => {
         if (AppConfig.usarMocks) {
-            console.log("🔧 MOCK: Obteniendo pago simulado");
-            return new Promise((resolve) => {
-                setTimeout(() => resolve(pagosMockData.find(p => p.Id === id)), 500);
-            });
+            return new Promise((resolve) => setTimeout(() => resolve(pagosMockData.find(p => p.id === id)), 500));
         }
 
-        const response = await apiClient.get(`/pagos/${id}`);
-        return response.data;
+        try {
+            const response = await apiClient.get(`/pagos/${id}`);
+            const resultado = response.data;
+            const exito = resultado.Success ?? resultado.success ?? resultado.Exito ?? resultado.exito;
+
+            if (exito === false) {
+                throw new Error(resultado.Message ?? resultado.mensaje ?? "Pago no encontrado.");
+            }
+
+            return resultado.Data ?? resultado.data ?? resultado.objeto ?? resultado;
+        } catch (error: any) {
+            if (error.response?.status === 404) throw new Error("El detalle del pago especificado no existe.");
+            throw manejarErrorHttp(error, "Error al buscar el detalle del pago.");
+        }
     },
 
     getByMetodo: async (idMetodo: number) => {
         if (AppConfig.usarMocks) {
-            console.log("🔧 MOCK: Obteniendo pagos simulados por método");
-            return new Promise((resolve) => {
-                setTimeout(() => resolve(pagosMockData.filter(p => p.Metodo === idMetodo)), 500);
-            });
+            return new Promise((resolve) => setTimeout(() => resolve(pagosMockData.filter(p => p.metodo === idMetodo)), 500));
         }
 
-        const response = await apiClient.get(`/pagos/metodo/${idMetodo}`);
-        return response.data;
+        try {
+            const response = await apiClient.get(`/pagos/metodo/${idMetodo}`);
+            const resultado = response.data;
+            const exito = resultado.Success ?? resultado.success ?? resultado.Exito ?? resultado.exito;
+
+            if (exito === false) {
+                throw new Error(resultado.Message ?? resultado.mensaje ?? "Error al obtener pagos.");
+            }
+
+            return resultado.Data ?? resultado.data ?? [];
+        } catch (error: any) {
+            if (error.response?.status === 404) return []; 
+            throw manejarErrorHttp(error, "Fallo de conexión al cargar los pagos por este método.");
+        }
     },
 
     getByOrden: async (ordenId: number) => {
         if (AppConfig.usarMocks) {
-            console.log("🔧 MOCK: Obteniendo pagos simulados por orden");
-            return new Promise((resolve) => {
-                setTimeout(() => resolve(pagosMockData.filter(p => p.OrdenId === ordenId)), 500);
-            });
+            return new Promise((resolve) => setTimeout(() => resolve(pagosMockData.filter(p => p.ordenId === ordenId)), 500));
         }
 
-        const response = await apiClient.get(`/pagos/orden/${ordenId}`);
-        return response.data;
+        try {
+            const response = await apiClient.get(`/pagos/orden/${ordenId}`);
+            const resultado = response.data;
+            const exito = resultado.Success ?? resultado.success ?? resultado.Exito ?? resultado.exito;
+
+            if (exito === false) {
+                throw new Error(resultado.Message ?? resultado.mensaje ?? "Error al obtener pagos de la orden.");
+            }
+
+            return resultado.Data ?? resultado.data ?? [];
+        } catch (error: any) {
+            if (error.response?.status === 404) return []; 
+            throw manejarErrorHttp(error, "Fallo de conexión al cargar los pagos de esta orden.");
+        }
     },
 
     getByReferencia: async (referenciaId: string) => {
         if (AppConfig.usarMocks) {
-            console.log("🔧 MOCK: Obteniendo pago simulado por referencia");
-            return new Promise((resolve) => {
-                setTimeout(() => resolve(pagosMockData.find(p => p.Referencia === referenciaId)), 500);
-            });
+            return new Promise((resolve) => setTimeout(() => resolve(pagosMockData.find(p => p.referencia === referenciaId)), 500));
         }
 
-        const response = await apiClient.get(`/pagos/referencia/${referenciaId}`);
-        return response.data;
+        try {
+            const response = await apiClient.get(`/pagos/referencia/${referenciaId}`);
+            const resultado = response.data;
+            const exito = resultado.Success ?? resultado.success ?? resultado.Exito ?? resultado.exito;
+
+            if (exito === false) {
+                throw new Error(resultado.Message ?? resultado.mensaje ?? "Referencia no encontrada.");
+            }
+
+            return resultado.Data ?? resultado.data ?? resultado.objeto ?? resultado;
+        } catch (error: any) {
+            if (error.response?.status === 404) throw new Error("No existen pagos registrados bajo ese número de referencia.");
+            throw manejarErrorHttp(error, "Error al buscar el pago por número de referencia.");
+        }
     },
 
     // --------------------------------------------------------
     // MÉTODOS GET CON QUERY PARAMS
     // --------------------------------------------------------
+    
     getByFechas: async (fechaInicio?: Date, fechaFin?: Date) => {
-        const queryParams = new URLSearchParams();
         if (AppConfig.usarMocks){
-            console.log("🔧 MOCK: Obteniendo pagos simulados por fechas");
-            return new Promise((resolve) => {setTimeout(() => resolve(pagosMockData), 500);});
+            return new Promise((resolve) => setTimeout(() => resolve(pagosMockData), 500));
         }
-        // Añadimos los parámetros condicionalmente si existen
-        if (fechaInicio) queryParams.append('fechaInicio', fechaInicio.toISOString());
-        if (fechaFin) queryParams.append('fechaFin', fechaFin.toISOString());
         
-        const response = await apiClient.get(`/pagos/fechas?${queryParams.toString()}`);
-        return response.data;
+        try {
+            const queryParams = new URLSearchParams();
+            if (fechaInicio) queryParams.append('fechaInicio', fechaInicio.toISOString());
+            if (fechaFin) queryParams.append('fechaFin', fechaFin.toISOString());
+            
+            const response = await apiClient.get(`/pagos/fechas?${queryParams.toString()}`);
+            const resultado = response.data;
+            const exito = resultado.Success ?? resultado.success ?? resultado.Exito ?? resultado.exito;
+
+            if (exito === false) {
+                throw new Error(resultado.Message ?? resultado.mensaje ?? "Error al obtener pagos por fecha.");
+            }
+
+            return resultado.Data ?? resultado.data ?? [];
+        } catch (error: any) {
+            if (error.response?.status === 404) return []; 
+            throw manejarErrorHttp(error, "Fallo de conexión al filtrar el historial de pagos.");
+        }
     },
 
     // --------------------------------------------------------
@@ -105,36 +156,67 @@ export const pagosService = {
 
     createAddPago: async (pago: PagoStandaloneCreateDTO, usuarioId: number) => {
         if(AppConfig.usarMocks) { 
-            console.log("🔧 MOCK: Simulando creación de pago", pago);
             return new Promise((resolve) => setTimeout(() => resolve({ success: true }), 500));
         }
         
-        const response = await apiClient.post('/pagos', pago, {
-            headers: { 'X-Usuario-Id': usuarioId }
-        });
-        return response.data;
+        try {
+            const response = await apiClient.post('/pagos', pago, {
+                headers: { 'X-Admin-Id': usuarioId } // Ajustado a la convención de tu backend si aplica
+            });
+            const resultado = response.data;
+            const exito = resultado.Success ?? resultado.success ?? resultado.Exito ?? resultado.exito;
+
+            if (exito === false) {
+                throw new Error(resultado.Message ?? resultado.mensaje ?? "Error al procesar el pago.");
+            }
+
+            return resultado;
+        } catch (error: any) {
+            throw manejarErrorHttp(error, "Ocurrió un error al registrar el nuevo pago en el sistema.");
+        }
     },
 
     update: async (id: number, pagoActualizado: PagoUpdateDTO, usuarioId: number) => {
-        // Se envía el PagoUpdateDTO en el body[cite: 32, 33]
         if(AppConfig.usarMocks) {
-            console.log("🔧 MOCK: Simulando actualización de pago", pagoActualizado);
             return new Promise((resolve) => setTimeout(() => resolve({ success: true, data : pagoActualizado }), 500));
         }
-        const response = await apiClient.put(`/pagos/${id}`, pagoActualizado, {
-            headers: { 'X-Usuario-Id': usuarioId }
-        });
-        return response.data;
+        
+        try {
+            const response = await apiClient.put(`/pagos/${id}`, pagoActualizado, {
+                headers: { 'X-Admin-Id': usuarioId }
+            });
+            const resultado = response.data;
+            const exito = resultado.Success ?? resultado.success ?? resultado.Exito ?? resultado.exito;
+
+            if (exito === false) {
+                throw new Error(resultado.Message ?? resultado.mensaje ?? "Error al modificar el pago.");
+            }
+
+            return resultado;
+        } catch (error: any) {
+            throw manejarErrorHttp(error, "Ocurrió un error al actualizar la información del pago.");
+        }
     },
 
     delete: async (id: number, usuarioId: number) => {
         if (AppConfig.usarMocks) {
-            console.log("🔧 MOCK: Simulando eliminación de pago", id);
             return new Promise((resolve) => setTimeout(() => resolve({ success: true }), 500));
         }
-        const response = await apiClient.delete(`/pagos/${id}`, {
-            headers: { 'X-Usuario-Id': usuarioId }
-        });
-        return response.data;
+        
+        try {
+            const response = await apiClient.delete(`/pagos/${id}`, {
+                headers: { 'X-Admin-Id': usuarioId }
+            });
+            const resultado = response.data;
+            const exito = resultado.Success ?? resultado.success ?? resultado.Exito ?? resultado.exito;
+
+            if (exito === false) {
+                throw new Error(resultado.Message ?? resultado.mensaje ?? "Error al anular el pago.");
+            }
+
+            return resultado;
+        } catch (error: any) {
+            throw manejarErrorHttp(error, "No se pudo anular este pago. Verifique los permisos del operador.");
+        }
     }
 };

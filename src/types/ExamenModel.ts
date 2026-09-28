@@ -1,7 +1,7 @@
 export interface Examen {
 
-    Id: number;
-    NombreExamen: string;
-    CostoEnDivisa: number;
-    Descripcion: string;
+    id: number;
+    nombreExamen: string;
+    costoEnDivisa: number;
+    descripcion: string;
 }

@@ -23,8 +23,6 @@ export function LoginPage() {
     try {
       const respuesta = await usuariosService.login({ username, contrasena: password });
       
-      // ASP.NET Core puede devolver JSON en camelCase o PascalCase dependiendo de tu config.
-      // Cubrimos ambos casos para evitar errores.
       const exito = respuesta.exito || respuesta.Exito;
       
       if (exito) {
@@ -36,12 +34,13 @@ export function LoginPage() {
             username: info.username || info.Username,
             nombre: info.nombre || info.Nombre,
             apellido: info.apellido || info.Apellido,
-            rolNombre: info.rolName || info.RolName || 'Usuario',
-            permisos: info.permisos || info.Permisos || []
+            rolNombre: info.rolNombre || info.rolName || info.RolName || 'Usuario',
+            
+            // LA CORRECCIÓN CLAVE: 
+            // Buscamos 'permisosSistema' (como viene de C#) y usamos ?? para respetar el 0
+            permisos: info.permisosSistema ?? info.PermisosSistema ?? info.permisos ?? info.Permisos ?? []
           });
 
-          // Opcional: Si necesitas guardar la tasa del dólar globalmente, 
-          // podrías hacerlo aquí o en otro contexto.
       } else {
           setError(respuesta.mensaje || respuesta.Mensaje || 'Credenciales inválidas.');
       }
@@ -57,7 +56,6 @@ export function LoginPage() {
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
         
-        {/* Cabecera del Login */}
         <div className="bg-emerald-600 p-8 text-center">
           <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-md">
             <span className="text-3xl">🔬</span>
@@ -66,7 +64,6 @@ export function LoginPage() {
           <p className="text-emerald-100 text-sm mt-1">Sistema de Gestión de Laboratorio</p>
         </div>
 
-        {/* Formulario */}
         <div className="p-8">
           <h2 className="text-xl font-bold text-slate-800 mb-6 text-center">Iniciar Sesión</h2>
           

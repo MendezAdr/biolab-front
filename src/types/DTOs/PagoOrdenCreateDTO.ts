@@ -1,7 +1,6 @@
 
-export interface PagoOrdenCreateDTO{
-    Monto      : number;
-    Metodo     : number;
-    Referencia : string;
-    
+export interface PagoOrdenCreateDTO {
+    monto: number;
+    metodo: number;
+    referencia: string;
 }

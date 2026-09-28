@@ -4,17 +4,15 @@ import { ordenesService } from '../../services/ordenesService';
 import { ModalDetallesFactura } from './ModalDetallesFactura';
 import type { Orden } from '../../types/OrdenesModel';
 
-// 1. IMPORTAMOS EL CONTEXTO Y LOS PERMISOS
 import { useAuth } from '../../context/AuthContext';
 import { PERMISOS } from '../../types/AuthTypes';
 
 export function HistoricoFacturas() {
-  // 2. EXTRAEMOS LA SESIÓN ACTUAL
   const { usuario, tienePermiso } = useAuth();
   const currentUserId = usuario?.id || 1; 
 
-  // Evaluamos el permiso
   const puedeCrearOrdenes = tienePermiso(PERMISOS.CREAR_ORDENES_Y_DETALLES);
+  const puedeVerHistorial = tienePermiso(PERMISOS.VER_REPORTES);
 
   const [listaFacturas, setListaFacturas] = useState<Orden[]>([]);
   const [cargando, setCargando] = useState<boolean>(true);
@@ -39,8 +37,12 @@ export function HistoricoFacturas() {
   };
 
   useEffect(() => {
-    cargarHistorial();
-  }, []);
+    if (puedeVerHistorial) {
+      cargarHistorial();
+    } else {
+      setCargando(false);
+    }
+  }, [puedeVerHistorial]);
 
   const formatearFechaSegura = (fechaString: any) => {
     if (!fechaString) return 'Fecha no disponible';
@@ -51,6 +53,18 @@ export function HistoricoFacturas() {
   const navegarANuevaFactura = () => {
     navigate('/nueva-orden');
   };
+
+  if (!puedeVerHistorial) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 bg-white border border-slate-200 rounded-xl shadow-sm mx-auto max-w-2xl mt-12 text-center">
+        <span className="text-6xl mb-4 opacity-80">🔒</span>
+        <h2 className="text-xl font-bold text-slate-800 mb-2">Acceso Restringido</h2>
+        <p className="text-slate-500">
+          Tu nivel de acceso actual no te permite consultar el historial de facturación ni ver reportes antiguos.
+        </p>
+      </div>
+    );
+  }
 
   if (cargando) {
     return <div className="flex justify-center items-center h-64 text-slate-500">Cargando histórico...</div>;
@@ -76,7 +90,6 @@ export function HistoricoFacturas() {
           <p className="text-sm text-slate-500">Consulta y reimpresión de órdenes registradas</p>
         </div>
         
-        {/* BOTÓN PROTEGIDO: Crear Nueva Factura */}
         <div className="inline-block" title={!puedeCrearOrdenes ? "No tienes permisos para emitir órdenes oficiales en el sistema." : ""}>
           <button 
             onClick={navegarANuevaFactura}
@@ -108,22 +121,31 @@ export function HistoricoFacturas() {
                   </td>
                 </tr>
               ) : (
-                listaFacturas.map((factura) => (
-                  <tr key={factura.Id} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-4 font-mono font-semibold text-emerald-700">{factura.NumeroFactura}</td>
-                    <td className="p-4 text-slate-500">{formatearFechaSegura(factura.FechaCreacion)}</td>
-                    <td className="p-4 text-slate-600">{factura.PacienteId}</td>
-                    <td className="p-4 font-bold text-slate-800 text-right">${factura.TotalDivisa}</td>
-                    <td className="p-4 text-center">
-                      <button 
-                        onClick={() => setFacturaSeleccionadaId(factura.Id)}
-                        className="text-sky-600 hover:text-sky-800 font-medium text-xs bg-sky-50 hover:bg-sky-100 px-3 py-1.5 rounded transition-colors"
-                      >
-                        Ver Detalles
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                listaFacturas.map((factura) => {
+                  const fId = factura.id ?? (factura as any).Id;
+                  const numFactura = factura.numeroFactura ?? (factura as any).NumeroFactura;
+                  // CORRECCIÓN: Leemos fechaOrden primero según lo que revela el backend
+                  const fecha = factura.fechaOrden ?? (factura as any).FechaOrden;
+                  const paciente = factura.pacienteId ?? (factura as any).PacienteId;
+                  const total = factura.totalDivisa ?? (factura as any).TotalDivisa;
+
+                  return (
+                    <tr key={fId} className="hover:bg-slate-50 transition-colors">
+                      <td className="p-4 font-mono font-semibold text-emerald-700">{numFactura}</td>
+                      <td className="p-4 text-slate-500">{formatearFechaSegura(fecha)}</td>
+                      <td className="p-4 text-slate-600">{paciente}</td>
+                      <td className="p-4 font-bold text-slate-800 text-right">${total}</td>
+                      <td className="p-4 text-center">
+                        <button 
+                          onClick={() => setFacturaSeleccionadaId(fId)}
+                          className="text-sky-600 hover:text-sky-800 font-medium text-xs bg-sky-50 hover:bg-sky-100 px-3 py-1.5 rounded transition-colors"
+                        >
+                          Ver Detalles
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

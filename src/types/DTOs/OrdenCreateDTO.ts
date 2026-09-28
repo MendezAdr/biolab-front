@@ -2,11 +2,11 @@ import type { DetalleCreateDTO } from "./DetalleCreateDTO";
 import type { PagoOrdenCreateDTO } from "./PagoOrdenCreateDTO";
 
 export interface OrdenCreateDTO {
-    NumeroFactura : string;
-    PacienteId    : number;
-    TotalDivisa   : number;
-    TasaBCV       : number;
-    Fecha         : Date;
-    Detalles      : DetalleCreateDTO[];
-    Pagos         : PagoOrdenCreateDTO[];
+    numeroFactura: string;
+    pacienteId: number;
+    totalDivisa: number;
+    tasaBcv: number;
+    fecha: Date;
+    detalles: DetalleCreateDTO[]; // Asegúrate de que DetalleCreateDTO también esté en camelCase
+    pagos: PagoOrdenCreateDTO[];
 }

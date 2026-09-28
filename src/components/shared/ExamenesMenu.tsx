@@ -1,20 +1,18 @@
 import React, { useState, useEffect } from 'react';
+import toast, { Toaster } from 'react-hot-toast'; // Importamos el sistema de notificaciones
 import { examenesService } from '../../services/examenesService';
 import { ModalExamen } from './ModalExamen';
 import type { Examen } from '../../types/ExamenModel';
 import type { ExamenCreateDTO } from '../../types/DTOs/ExamenCreateDTO';
 import type { ExamenUpdateDTO } from '../../types/DTOs/ExamenUpdateDTO';
 
-// 1. IMPORTAMOS EL CONTEXTO Y LOS PERMISOS
 import { useAuth } from '../../context/AuthContext';
 import { PERMISOS } from '../../types/AuthTypes';
 
 export function ExamenesMenu() {
-  // 2. EXTRAEMOS LA SESIÓN ACTUAL
   const { usuario, tienePermiso } = useAuth();
   const currentUserId = usuario?.id || 1; 
   
-  // Evaluamos el permiso
   const puedeGestionarExamenes = tienePermiso(PERMISOS.GESTIONAR_EXAMENES);
 
   const [listaExamenes, setListaExamenes] = useState<Examen[]>([]);
@@ -39,8 +37,13 @@ export function ExamenesMenu() {
   };
 
   useEffect(() => {
-    cargarExamenes();
-  }, []);
+    // PREVENCIÓN: Evitar carga en red si el usuario no posee acceso al módulo
+    if (puedeGestionarExamenes) {
+      cargarExamenes();
+    } else {
+      setCargando(false);
+    }
+  }, [puedeGestionarExamenes]);
 
   const abrirModalCrear = () => {
     setExamenAEditar(null);
@@ -58,50 +61,66 @@ export function ExamenesMenu() {
     if (confirmar) {
         try {
             await examenesService.delete(id, currentUserId);
-            alert("Examen eliminado correctamente.");
+            toast.success("Examen eliminado correctamente del catálogo.");
             cargarExamenes(); 
-        } catch(err) {
-            alert("Error al eliminar el examen. Asegúrate de tener los permisos necesarios o verifica que el examen no esté asociado a facturas previas.");
+        } catch(err: any) {
+            toast.error(err.message || "Error al eliminar el examen. Verifica que no esté asociado a facturas previas.");
         }
     }
   };
 
+  // SISTEMA DE PROMESA: Feedback visual mientras se comunica con C#
   const manejarGuardado = async (datos: ExamenCreateDTO | ExamenUpdateDTO) => {
-    try {
-      if (examenAEditar) {
-        await examenesService.update(examenAEditar.Id, datos as ExamenUpdateDTO, currentUserId);
-        alert("Examen actualizado correctamente.");
-      } else {
-        await examenesService.create(datos as ExamenCreateDTO, currentUserId);
-        alert("Nuevo examen agregado al catálogo.");
+    toast.promise(
+      (async () => {
+        if (examenAEditar) {
+          await examenesService.update(examenAEditar.id ?? (examenAEditar as any).Id, datos as ExamenUpdateDTO, currentUserId);
+        } else {
+          await examenesService.create(datos as ExamenCreateDTO, currentUserId);
+        }
+        setModalAbierto(false);
+        await cargarExamenes();
+      })(),
+      {
+        loading: 'Procesando examen...',
+        success: '¡Catálogo actualizado con éxito!',
+        error: (err) => err.message || 'Error al guardar el examen en el sistema.',
       }
-      setModalAbierto(false);
-      cargarExamenes();
-    } catch (err) {
-      console.error(err);
-      alert("Error al guardar el examen en el sistema.");
-    }
+    );
   };
+
+  // PANTALLA DE RESTRICCIÓN DE ACCESO
+  if (!puedeGestionarExamenes) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 bg-white border border-slate-200 rounded-xl shadow-sm mx-auto max-w-2xl mt-12 text-center">
+        <span className="text-6xl mb-4 opacity-80">🔒</span>
+        <h2 className="text-xl font-bold text-slate-800 mb-2">Acceso Restringido</h2>
+        <p className="text-slate-500">
+          Tu nivel de acceso actual no te permite visualizar ni administrar el catálogo de exámenes médicos.
+        </p>
+      </div>
+    );
+  }
 
   if (cargando) return <div className="p-10 text-center animate-pulse text-slate-500">Cargando catálogo de exámenes...</div>;
   
   if (error) return (
     <div className="p-6 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-center max-w-2xl mx-auto mt-6">
-      <p>{error}</p>
-      <button onClick={cargarExamenes} className="mt-4 px-4 py-2 bg-rose-100 hover:bg-rose-200 rounded-lg text-sm">Reintentar</button>
+      <p className="font-semibold">{error}</p>
+      <button onClick={cargarExamenes} className="mt-4 px-4 py-2 bg-rose-100 hover:bg-rose-200 rounded-lg text-sm transition-colors">Reintentar Conexión</button>
     </div>
   );
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm mx-auto max-w-5xl mt-6">
-      
+      <Toaster position="bottom-right" reverseOrder={false} />
+
       <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
         <div>
           <h2 className="text-lg font-semibold text-emerald-800">Catálogo de Exámenes</h2>
           <p className="text-sm text-slate-500">Administra los servicios que ofrece el laboratorio</p>
         </div>
 
-        {/* BOTÓN PROTEGIDO: Agregar Examen */}
         <div className="inline-block" title={!puedeGestionarExamenes ? "No tienes permisos para agregar exámenes al catálogo." : ""}>
           <button 
             onClick={abrirModalCrear}
@@ -132,39 +151,45 @@ export function ExamenesMenu() {
                 </td>
               </tr>
             ) : (
-              listaExamenes.map((examen) => (
-                <tr key={examen.Id} className="hover:bg-slate-50 transition-colors">
-                  <td className="p-4 font-mono text-slate-400 text-center">{examen.Id}</td>
-                  <td className="p-4 font-semibold text-slate-800">{examen.NombreExamen}</td>
-                  <td className="p-4 text-slate-500 truncate max-w-xs">{examen.Descripcion || 'Sin descripción'}</td>
-                  <td className="p-4 font-bold text-emerald-600 text-right">${examen.CostoEnDivisa}</td>
-                  <td className="p-4 text-center space-x-2">
-                    
-                    {/* BOTÓN PROTEGIDO: Editar */}
-                    <div className="inline-block" title={!puedeGestionarExamenes ? "No tienes permisos para modificar exámenes." : ""}>
-                      <button 
-                        onClick={() => abrirModalEditar(examen)} 
-                        disabled={!puedeGestionarExamenes}
-                        className={`font-medium text-xs px-3 py-1.5 rounded transition-colors ${!puedeGestionarExamenes ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-sky-50 text-sky-600 hover:text-sky-800'}`}
-                      >
-                        Editar
-                      </button>
-                    </div>
+              listaExamenes.map((examen) => {
+                // EXTRACCIÓN SEGURA (camelCase con contingencia para mocks antiguos)
+                const id = examen.id ?? (examen as any).Id;
+                const nombre = examen.nombreExamen ?? (examen as any).NombreExamen;
+                const descripcion = examen.descripcion ?? (examen as any).Descripcion;
+                const costo = examen.costoEnDivisa ?? (examen as any).CostoEnDivisa;
 
-                    {/* BOTÓN PROTEGIDO: Eliminar */}
-                    <div className="inline-block" title={!puedeGestionarExamenes ? "No tienes permisos para eliminar exámenes." : ""}>
-                      <button 
-                        onClick={() => eliminarExamen(examen.Id, examen.NombreExamen)} 
-                        disabled={!puedeGestionarExamenes}
-                        className={`font-medium text-xs px-3 py-1.5 rounded transition-colors ${!puedeGestionarExamenes ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-rose-50 text-rose-600 hover:text-rose-800'}`}
-                      >
-                        Eliminar
-                      </button>
-                    </div>
+                return (
+                  <tr key={id} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-4 font-mono text-slate-400 text-center">{id}</td>
+                    <td className="p-4 font-semibold text-slate-800">{nombre}</td>
+                    <td className="p-4 text-slate-500 truncate max-w-xs" title={descripcion}>{descripcion || 'Sin descripción'}</td>
+                    <td className="p-4 font-bold text-emerald-600 text-right">${costo}</td>
+                    <td className="p-4 text-center space-x-2">
+                      
+                      <div className="inline-block" title={!puedeGestionarExamenes ? "No tienes permisos para modificar exámenes." : ""}>
+                        <button 
+                          onClick={() => abrirModalEditar(examen)} 
+                          disabled={!puedeGestionarExamenes}
+                          className={`font-medium text-xs px-3 py-1.5 rounded transition-colors ${!puedeGestionarExamenes ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-sky-50 text-sky-600 hover:text-sky-800'}`}
+                        >
+                          Editar
+                        </button>
+                      </div>
 
-                  </td>
-                </tr>
-              ))
+                      <div className="inline-block" title={!puedeGestionarExamenes ? "No tienes permisos para eliminar exámenes." : ""}>
+                        <button 
+                          onClick={() => eliminarExamen(id, nombre)} 
+                          disabled={!puedeGestionarExamenes}
+                          className={`font-medium text-xs px-3 py-1.5 rounded transition-colors ${!puedeGestionarExamenes ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-rose-50 text-rose-600 hover:text-rose-800'}`}
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

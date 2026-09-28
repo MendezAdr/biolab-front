@@ -1,9 +1,8 @@
-
 export interface UsuarioCreateDTO {
-    Username   : string;
-    Nombre     : string;
-    Apellido   : string;
-    Cedula     : string;
-    Contrasena : string;
-    RolId      : number;
+    username: string;
+    nombre: string;
+    apellido: string;
+    cedula: string;
+    contrasena: string;
+    rolId: number;
 }

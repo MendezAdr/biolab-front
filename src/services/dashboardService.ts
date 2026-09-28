@@ -29,9 +29,22 @@ const dashboardMockData: MetricasDashboard = {
   ]
 };
 
+// Estructura segura en caso de base de datos vacía
+const metricasVacias: MetricasDashboard = {
+    pacientesTotales: 0,
+    ordenesPendientes: 0,
+    ingresosDelMes: 0,
+    examenesTop: [],
+    ventasSemanales: [
+      { semana: 'Sem 1', total: 0 },
+      { semana: 'Sem 2', total: 0 },
+      { semana: 'Sem 3', total: 0 },
+      { semana: 'Sem 4', total: 0 }
+    ]
+};
+
 export const dashboardService = {
   
-  // Ahora exigimos el usuarioId para poder hacer las peticiones protegidas
   obtenerMetricasGenerales: async (usuarioId: number): Promise<MetricasDashboard> => {
     
     if (AppConfig.usarMocks) {
@@ -42,27 +55,32 @@ export const dashboardService = {
     }
 
     try {
-      // 1. Calculamos las fechas del mes actual
       const ahora = new Date();
       const primerDiaMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
       const ultimoDiaMes = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 0, 23, 59, 59);
 
-      // 2. Disparamos las peticiones en paralelo para mayor velocidad
       const [pacientesBD, ordenesMesBD] = await Promise.all([
         pacienteService.getAll(),
         ordenesService.getByFechas(primerDiaMes, ultimoDiaMes, usuarioId)
       ]);
 
-      const pacientesTotales = pacientesBD ? pacientesBD.length : 0;
-      const ordenesMes = ordenesMesBD || [];
+      // CORRECCIÓN: Extraemos '.data' o el array si el backend retorna la lista directa,
+      // y si viene null/undefined, forzamos un array vacío [] para que .filter() no colapse.
+      const pacientesLista = pacientesBD?.Data || pacientesBD || [];
+      const ordenesLista = ordenesMesBD?.Data || ordenesMesBD || [];
 
-      // 3. Órdenes Pendientes (Estado 2 = Pendiente, 3 = Parcial)
+      // Si no hay datos en absoluto, devolvemos el cascarón vacío de inmediato
+      if (!Array.isArray(ordenesLista) || ordenesLista.length === 0) {
+          return { ...metricasVacias, pacientesTotales: pacientesLista.length };
+      }
+
+      const pacientesTotales = pacientesLista.length;
+      const ordenesMes = ordenesLista;
+
       const ordenesPendientes = ordenesMes.filter((o: any) => o.EstadoPago === 2 || o.EstadoPago === 3 || o.Estado === 2).length;
 
-      // 4. Ingresos del Mes (Sumatoria del TotalDivisa de las facturas del mes)
       const ingresosDelMes = ordenesMes.reduce((suma: number, orden: any) => suma + (orden.TotalDivisa || 0), 0);
 
-      // 5. Calcular los Exámenes más populares
       const conteoExamenes: Record<string, number> = {};
       ordenesMes.forEach((orden: any) => {
           if (orden.Detalles && Array.isArray(orden.Detalles)) {
@@ -76,9 +94,8 @@ export const dashboardService = {
       const examenesTop = Object.entries(conteoExamenes)
           .map(([nombre, cantidad]) => ({ nombre, cantidad }))
           .sort((a, b) => b.cantidad - a.cantidad)
-          .slice(0, 5); // Tomamos solo los 5 más pedidos
+          .slice(0, 5); 
 
-      // 6. Calcular ventas semanales aproximadas
       const ventasSemanales = [
           { semana: 'Sem 1', total: 0 },
           { semana: 'Sem 2', total: 0 },
@@ -97,7 +114,6 @@ export const dashboardService = {
           else ventasSemanales[3].total += monto;
       });
 
-      // 7. Retornamos la estructura empaquetada y lista para graficar
       return {
           pacientesTotales,
           ordenesPendientes,
@@ -108,7 +124,8 @@ export const dashboardService = {
 
     } catch (error) {
       console.error("Error crítico al compilar métricas reales:", error);
-      throw error;
+      // Fallback seguro: Si el servidor falla, el panel mostrará ceros en vez de una pantalla blanca
+      return metricasVacias; 
     }
   }
 };

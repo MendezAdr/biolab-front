@@ -7,7 +7,6 @@ import { PagoMetodo, type Pago } from '../../types/PagoModel';
 
 import { useAuth } from '../../context/AuthContext';
 import { PERMISOS } from '../../types/AuthTypes';
-import type { Paciente } from '../../types/PacienteModel';
 
 interface ModalDetallesFacturaProps {
   ordenId: number | null;
@@ -22,7 +21,6 @@ export function ModalDetallesFactura({ ordenId, isOpen, onClose }: ModalDetalles
   const puedeVerReportes = tienePermiso(PERMISOS.VER_REPORTES);
 
   const [ordenDetalle, setOrdenDetalle] = useState<Orden | null>(null);
-  // Estado para el nombre del paciente, inicializado como 'Cargando...'
   const [nombrePaciente, setNombrePaciente] = useState<string>('Cargando...');
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,30 +34,33 @@ export function ModalDetallesFactura({ ordenId, isOpen, onClose }: ModalDetalles
           setCargando(true);
           setError(null);
           
-          // 1. Cargamos la orden
           const data = await ordenesService.getById(ordenId, currentUserId);
           setOrdenDetalle(data);
           
-          // 2. Cargamos el paciente de forma segura
-          if (data && data.PacienteId) {
+          const pacienteId = data.pacienteId ?? data.PacienteId;
+          
+          if (data && pacienteId) {
             try {
-               // Aquí se asume que pacienteService.getById existe y maneja Mocks
-               const pacienteData = await pacienteService.getById(data.PacienteId);
-               if (pacienteData && pacienteData.Nombre) {
-                   // Formateamos el nombre completo si es posible
-                   const nombreCompleto = `${pacienteData.Nombre} ${pacienteData.Apellido || ''}`.trim();
-                   setNombrePaciente(nombreCompleto);
+               // 1. Enviamos currentUserId para pasar la validación del backend
+               const respuestaBackend = await pacienteService.getById(pacienteId);
+               
+               // 2. Extracción profunda resistente a anidamiento
+               const p = respuestaBackend?.Data ?? respuestaBackend?.data ?? respuestaBackend?.objeto ?? respuestaBackend;
+
+               if (p && (p.nombre || p.Nombre)) {
+                   const n = p.nombre ?? p.Nombre;
+                   const a = p.apellido ?? p.Apellido ?? '';
+                   setNombrePaciente(`${n} ${a}`.trim());
                } else {
-                   setNombrePaciente(`ID: ${data.PacienteId} (Nombre no disponible)`);
+                   setNombrePaciente(`ID: ${pacienteId} (Datos ilegibles)`);
                }
             } catch(err) {
-               console.warn("No se pudo cargar el paciente para la orden:", data.PacienteId);
-               setNombrePaciente(`ID: ${data.PacienteId} (Desconocido)`);
+               console.warn("Fallo al consultar paciente:", err);
+               setNombrePaciente(`ID: ${pacienteId} (Desconocido)`);
             }
           }
 
         } catch (err) {
-          console.error("Error al cargar detalles de la factura:", err);
           setError("No se pudieron cargar los detalles de esta factura.");
         } finally {
           setCargando(false);
@@ -81,12 +82,11 @@ export function ModalDetallesFactura({ ordenId, isOpen, onClose }: ModalDetalles
   const manejarImpresion = () => {
     if (!ordenDetalle) return;
     
-    // Empaquetamos la orden y agregamos el nombre del paciente recuperado
     const paqueteImpresion = {
       tipoDocumento: 'factura',
       datos: {
           ...ordenDetalle,
-          PacienteNombre: nombrePaciente // Pasamos el nombre formateado al PDF
+          PacienteNombre: nombrePaciente 
       }
     };
 
@@ -103,7 +103,7 @@ export function ModalDetallesFactura({ ordenId, isOpen, onClose }: ModalDetalles
       <div className="relative bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold text-slate-800">
-            Detalles de la Factura {ordenDetalle ? `#${ordenDetalle.NumeroFactura}` : ''}
+            Detalles de la Factura {ordenDetalle ? `#${ordenDetalle.numeroFactura ?? (ordenDetalle as any).NumeroFactura}` : ''}
           </h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 font-bold p-1 text-xl">✕</button>
         </div>
@@ -115,36 +115,38 @@ export function ModalDetallesFactura({ ordenId, isOpen, onClose }: ModalDetalles
         ) : ordenDetalle ? (
           <div className="space-y-6">
             
-            <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-100">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-100">
               <div>
                 <p className="text-xs text-slate-500 uppercase font-semibold">Paciente</p>
-                {/* Mostramos el nombre formateado que calculamos en el useEffect */}
                 <p className="font-medium text-slate-800">{nombrePaciente}</p>
               </div>
               <div>
                 <p className="text-xs text-slate-500 uppercase font-semibold">Fecha de Emisión</p>
-                <p className="font-medium text-slate-800">{formatearFechaYHoraSegura(ordenDetalle.FechaCreacion)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 uppercase font-semibold">Tasa BCV Aplicada</p>
-                <p className="font-medium text-slate-800">Bs. {ordenDetalle.TasaBcv}</p>
+                <p className="font-medium text-slate-800">{formatearFechaYHoraSegura(ordenDetalle.fechaOrden ?? (ordenDetalle as any).FechaOrden)}</p>
               </div>
               <div>
                 <p className="text-xs text-slate-500 uppercase font-semibold">Total a Pagar (USD)</p>
-                <p className="font-bold text-emerald-700 text-lg">${ordenDetalle.TotalDivisa}</p>
+                <p className="font-bold text-emerald-700 text-lg">${ordenDetalle.totalDivisa ?? (ordenDetalle as any).TotalDivisa}</p>
               </div>
             </div>
 
             <div>
               <h4 className="font-semibold text-slate-700 mb-2 border-b pb-1">Exámenes Solicitados</h4>
-              {ordenDetalle.Detalles && ordenDetalle.Detalles.length > 0 ? (
+              {(ordenDetalle.detalles ?? (ordenDetalle as any).Detalles)?.length > 0 ? (
                 <ul className="space-y-2">
-                  {ordenDetalle.Detalles.map((det: any, index: number) => (
-                    <li key={index} className="flex justify-between text-sm p-2 bg-white border text-slate-700 border-slate-100 rounded">
-                      <span>Nombre Examen: {det.ExamenNombre}</span>
-                      <span className="font-medium">${det.PrecioMomentoDivisa}</span>
-                    </li>
-                  ))}
+                  {(ordenDetalle.detalles ?? (ordenDetalle as any).Detalles).map((det: any, index: number) => {
+                    const nombreExamen = det.examenNombre ?? det.ExamenNombre ?? 'Examen General';
+                    const precio = det.precioMomentoDivisa ?? det.PrecioMomentoDivisa ?? 0;
+                    return (
+                      <li key={index} className="flex justify-between items-center text-sm p-2 bg-white border text-slate-700 border-slate-100 rounded">
+                        <span className="font-medium">{nombreExamen}</span>
+                        <span className="font-bold text-emerald-700 text-right">
+                          <span className="text-xs text-slate-400 font-normal mr-1">Precio Divisa:</span> 
+                          ${precio}
+                        </span>
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : (
                 <p className="text-sm text-slate-500">No hay exámenes registrados.</p>
@@ -152,23 +154,26 @@ export function ModalDetallesFactura({ ordenId, isOpen, onClose }: ModalDetalles
             </div>
 
             <div>
-              <h4 className="font-semibold text-slate-700 mb-2 border-b pb-1">Registro de Pagos</h4>
-              {ordenDetalle.Pagos && ordenDetalle.Pagos.length > 0 ? (
+              <h4 className="font-semibold text-slate-700 mb-2 border-b pb-1">Registro de Pagos (Abonos)</h4>
+              {(ordenDetalle.pagos ?? (ordenDetalle as any).Pagos)?.length > 0 ? (
                 <ul className="space-y-2">
-                  {ordenDetalle.Pagos.map((pago: Pago, index: number) => {
-                    const metodoEncontrado = PagoMetodo.find(m => m.id === pago.Metodo);
+                  {(ordenDetalle.pagos ?? (ordenDetalle as any).Pagos).map((pago: any, index: number) => {
+                    const met = pago.metodo ?? pago.Metodo;
+                    const metodoEncontrado = PagoMetodo.find(m => m.id === met);
                     const nombreMetodo = metodoEncontrado ? metodoEncontrado.metodo : 'Desconocido';
+                    const referencia = pago.referencia ?? pago.Referencia;
+                    const monto = pago.monto ?? pago.Monto;
 
                     return (
                       <li key={index} className="flex justify-between text-sm p-2 text-slate-700 bg-white border border-slate-100 rounded">
-                        <span>Método: {nombreMetodo} <span className="text-xs text-slate-500">(Ref: {pago.Referencia || 'N/A'})</span></span>
-                        <span className="font-medium">${pago.Monto}</span>
+                        <span>{nombreMetodo} <span className="text-xs text-slate-500">(Ref: {referencia || 'N/A'})</span></span>
+                        <span className="font-medium">${monto}</span>
                       </li>
                     );
                   })}
                 </ul>
               ) : (
-                <p className="text-sm text-slate-500">Orden pendiente de pago.</p>
+                <p className="text-sm text-slate-500">Orden pendiente de pago o sin abonos registrados.</p>
               )}
             </div>
 

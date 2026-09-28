@@ -1,12 +1,15 @@
 export interface PacienteCreateDTO {
+    nombre: string;
+    apellido: string;
+    cedula: string;
+    sexo: string;
+    telefono: string;
+    direccion: string;
+    nombreAcompanante?: string;
+    cedulaAcompanante?: string;
+    fechaNacimiento?: Date;
+}
 
-    Nombre             : string;
-    Apellido           : string;
-    Cedula             : string;
-    Sexo               : string;
-    Telefono           : string;
-    Direccion          : string;
-    NombreAcompanante? : string;
-    CedulaAcompanante? : string;
-    FechaNacimiento?   : Date;
+export interface PacienteUpdateDTO extends PacienteCreateDTO {
+    id: number;
 }

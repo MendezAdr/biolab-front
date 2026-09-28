@@ -1,20 +1,18 @@
 import React, { useState, useEffect } from 'react';
+import toast, { Toaster } from 'react-hot-toast'; // Notificaciones asíncronas
 import { pagosService } from '../../services/pagosService';
 import { ModalRegistroPago } from './ModalRegistroPagos';
 import type { PagoStandaloneCreateDTO } from '../../types/DTOs/PagoStandaloneCreateDTO';
 import type { PagoUpdateDTO } from '../../types/DTOs/PagoUpdateDTO';
 import { PagoMetodo, type Pago } from '../../types/PagoModel';
 
-// 1. IMPORTAMOS EL CONTEXTO Y LOS PERMISOS
 import { useAuth } from '../../context/AuthContext';
 import { PERMISOS } from '../../types/AuthTypes';
 
 export function PanelPagos() {
-  // 2. EXTRAEMOS LA SESIÓN ACTUAL
   const { usuario, tienePermiso } = useAuth();
   const currentUserId = usuario?.id || 1; 
 
-  // Evaluamos el permiso
   const puedeGestionarPagos = tienePermiso(PERMISOS.GESTIONAR_PAGOS);
 
   const [listaPagos, setListaPagos] = useState<Pago[]>([]);
@@ -39,8 +37,13 @@ export function PanelPagos() {
   };
 
   useEffect(() => {
-    cargarPagos();
-  }, []);
+    // PREVENCIÓN: Solo llamamos al backend si el usuario tiene permiso
+    if (puedeGestionarPagos) {
+      cargarPagos();
+    } else {
+      setCargando(false);
+    }
+  }, [puedeGestionarPagos]);
 
   const abrirModalCrear = () => {
     setPagoAEditar(null);
@@ -56,42 +59,60 @@ export function PanelPagos() {
     if(window.confirm("¿Estás seguro de anular este pago? Esta acción es irreversible y afectará la caja.")){
         try {
             await pagosService.delete(id, currentUserId);
-            alert("Pago anulado correctamente.");
+            toast.success("Pago anulado y retirado de la caja correctamente.");
             cargarPagos();
-        } catch(err) {
-            alert("Error al anular el pago. Verifica tus permisos.");
+        } catch(err: any) {
+            toast.error(err.message || "Error al anular el pago. Verifica tus permisos.");
         }
     }
   };
 
+  // SISTEMA DE PROMESA: Feedback en tiempo real
   const manejarGuardado = async (datos: PagoStandaloneCreateDTO | PagoUpdateDTO) => {
-    try {
-      if (pagoAEditar) {
-        await pagosService.update(pagoAEditar.Id, datos as PagoUpdateDTO, currentUserId);
-        alert("Pago corregido exitosamente.");
-      } else {
-        await pagosService.createAddPago(datos as PagoStandaloneCreateDTO, currentUserId);
-        alert("Abono registrado exitosamente.");
+    toast.promise(
+      (async () => {
+        if (pagoAEditar) {
+          const pagoId = pagoAEditar.id ?? (pagoAEditar as any).Id;
+          await pagosService.update(pagoId, datos as PagoUpdateDTO, currentUserId);
+        } else {
+          await pagosService.createAddPago(datos as PagoStandaloneCreateDTO, currentUserId);
+        }
+        setModalAbierto(false);
+        await cargarPagos();
+      })(),
+      {
+        loading: 'Procesando transacción...',
+        success: '¡Caja actualizada con éxito!',
+        error: (err) => err.message || 'Error al procesar el pago.',
       }
-      setModalAbierto(false);
-      cargarPagos();
-    } catch (err) {
-      console.error(err);
-      alert("Error al procesar el pago.");
-    }
+    );
   };
+
+  // PANTALLA DE RESTRICCIÓN DE ACCESO
+  if (!puedeGestionarPagos) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 bg-white border border-slate-200 rounded-xl shadow-sm mx-auto max-w-2xl mt-12 text-center">
+        <span className="text-6xl mb-4 opacity-80">🔒</span>
+        <h2 className="text-xl font-bold text-slate-800 mb-2">Acceso Restringido</h2>
+        <p className="text-slate-500">
+          Tu nivel de acceso actual no te permite auditar la caja, registrar ni corregir pagos en el sistema.
+        </p>
+      </div>
+    );
+  }
 
   if (cargando) return <div className="p-10 text-center animate-pulse text-slate-500">Cargando módulo de caja...</div>;
   
   if (error) return (
     <div className="p-6 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-center max-w-2xl mx-auto">
-      <p>{error}</p>
-      <button onClick={cargarPagos} className="mt-4 px-4 py-2 bg-rose-100 hover:bg-rose-200 rounded-lg text-sm">Reintentar</button>
+      <p className="font-semibold">{error}</p>
+      <button onClick={cargarPagos} className="mt-4 px-4 py-2 bg-rose-100 hover:bg-rose-200 rounded-lg text-sm transition-colors">Reintentar</button>
     </div>
   );
 
   return (
     <div className="space-y-6 p-2 max-w-6xl mx-auto">
+      <Toaster position="bottom-right" reverseOrder={false} />
       
       <div className="flex justify-between items-center bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
         <div>
@@ -99,7 +120,6 @@ export function PanelPagos() {
           <p className="text-sm text-slate-500">Auditoría de pagos, correcciones y recepción de deudas</p>
         </div>
 
-        {/* BOTÓN PROTEGIDO: Registrar Abono */}
         <div className="inline-block" title={!puedeGestionarPagos ? "Tu rol no tiene permiso para registrar pagos en caja." : ""}>
           <button 
             onClick={abrirModalCrear}
@@ -133,22 +153,28 @@ export function PanelPagos() {
                 </tr>
               ) : (
                 listaPagos.map((pago) => {
-                  const nombreMetodo = PagoMetodo.find(m => m.id === pago.Metodo)?.metodo || 'Desconocido';
+                  // EXTRACCIÓN SEGURA (camelCase con contingencia)
+                  const id = pago.id ?? (pago as any).Id;
+                  const ordenId = pago.ordenId ?? (pago as any).OrdenId;
+                  const metodo = pago.metodo ?? (pago as any).Metodo;
+                  const referencia = pago.referencia ?? (pago as any).Referencia;
+                  const monto = pago.monto ?? (pago as any).Monto;
+
+                  const nombreMetodo = PagoMetodo.find(m => m.id === metodo)?.metodo || 'Desconocido';
 
                   return (
-                    <tr key={pago.Id} className="hover:bg-slate-50 transition-colors">
-                      <td className="p-4 font-mono text-slate-500">#{pago.Id}</td>
-                      <td className="p-4 font-semibold text-emerald-700">ORD-{pago.OrdenId}</td>
+                    <tr key={id} className="hover:bg-slate-50 transition-colors">
+                      <td className="p-4 font-mono text-slate-500">#{id}</td>
+                      <td className="p-4 font-semibold text-emerald-700">ORD-{ordenId}</td>
                       <td className="p-4">
                         <span className="bg-sky-50 text-sky-700 px-2 py-1 rounded text-xs font-medium border border-sky-100">
                           {nombreMetodo}
                         </span>
                       </td>
-                      <td className="p-4 text-slate-500">{pago.Referencia || 'N/A'}</td>
-                      <td className="p-4 font-bold text-slate-800 text-right">${pago.Monto}</td>
+                      <td className="p-4 text-slate-500">{referencia || 'N/A'}</td>
+                      <td className="p-4 font-bold text-slate-800 text-right">${monto}</td>
                       <td className="p-4 text-center space-x-2">
                         
-                        {/* BOTÓN PROTEGIDO: Corregir */}
                         <div className="inline-block" title={!puedeGestionarPagos ? "Sin permisos para corregir pagos." : ""}>
                           <button 
                             onClick={() => abrirModalEditar(pago)} 
@@ -159,10 +185,9 @@ export function PanelPagos() {
                           </button>
                         </div>
 
-                        {/* BOTÓN PROTEGIDO: Anular */}
                         <div className="inline-block" title={!puedeGestionarPagos ? "Sin permisos para anular pagos." : ""}>
                           <button 
-                            onClick={() => anularPago(pago.Id)} 
+                            onClick={() => anularPago(id)} 
                             disabled={!puedeGestionarPagos}
                             className={`font-medium text-xs px-2 py-1 rounded transition-colors ${!puedeGestionarPagos ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'text-rose-600 hover:text-rose-800 bg-rose-50'}`}
                           >

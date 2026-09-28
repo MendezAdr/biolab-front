@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import toast, { Toaster } from 'react-hot-toast';
 import type { OrdenCreateDTO } from '../../types/DTOs/OrdenCreateDTO'; 
 
-// 1. IMPORTAMOS EL CONTEXTO Y LOS PERMISOS
 import { useAuth } from '../../context/AuthContext';
 import { PERMISOS } from '../../types/AuthTypes';
 
@@ -12,17 +12,14 @@ interface ModalNuevaOrdenProps {
 }
 
 export function ModalNuevaOrden({ isOpen, onClose, onGuardar }: ModalNuevaOrdenProps) {
-  // 2. VERIFICAMOS PERMISOS DENTRO DEL MODAL
   const { tienePermiso } = useAuth();
   const puedeCrearOrden = tienePermiso(PERMISOS.CREAR_ORDENES_Y_DETALLES);
 
-  // Estados para los campos principales del DTO
   const [numeroFactura, setNumeroFactura] = useState('');
   const [pacienteId, setPacienteId] = useState<number>(0);
   const [totalDivisa, setTotalDivisa] = useState('');
   const [tasaBcv, setTasaBcv] = useState('');
 
-  // Limpiar formulario al abrir
   useEffect(() => {
     if (isOpen) {
       setNumeroFactura(`ORD-${Math.floor(Math.random() * 9000) + 1000}`);
@@ -38,18 +35,19 @@ export function ModalNuevaOrden({ isOpen, onClose, onGuardar }: ModalNuevaOrdenP
     e.preventDefault(); 
 
     if (!numeroFactura || pacienteId === 0 || !totalDivisa || !tasaBcv) {
-      alert("Por favor, rellena todos los campos principales de la orden.");
+      toast.error("Por favor, rellena todos los campos principales de la orden.");
       return;
     }
 
+    // PAYLOAD EN camelCase
     const ordenCreada: OrdenCreateDTO = {
-      NumeroFactura: numeroFactura,
-      PacienteId: pacienteId,
-      TotalDivisa: Number(totalDivisa),
-      TasaBCV: Number(tasaBcv),
-      Fecha: new Date(),
-      Detalles: [], 
-      Pagos: []     
+      numeroFactura: numeroFactura,
+      pacienteId: pacienteId,
+      totalDivisa: Number(totalDivisa),
+      tasaBcv: Number(tasaBcv),
+      fecha: new Date(),
+      detalles: [], 
+      pagos: []     
     };
 
     onGuardar(ordenCreada); 
@@ -57,6 +55,7 @@ export function ModalNuevaOrden({ isOpen, onClose, onGuardar }: ModalNuevaOrdenP
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <Toaster position="bottom-right" />
       <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onClick={onClose} />
 
       <div className="relative bg-white rounded-xl shadow-xl border border-slate-200 max-w-md w-full p-6">
@@ -125,7 +124,6 @@ export function ModalNuevaOrden({ isOpen, onClose, onGuardar }: ModalNuevaOrdenP
               Cancelar
             </button>
             
-            {/* BOTÓN PROTEGIDO: Registrar Orden */}
             <div className="inline-block" title={!puedeCrearOrden ? "No posees los privilegios necesarios para emitir nuevas órdenes." : ""}>
               <button 
                 type="submit" 

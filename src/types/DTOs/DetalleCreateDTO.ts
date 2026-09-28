@@ -1,4 +1,4 @@
-export interface DetalleCreateDTO{
-    ExamenId            : number;
-    PrecioMomentoDivisa : number;
+export interface DetalleCreateDTO {
+    examenId: number;
+    precioMomentoDivisa: number;
 }

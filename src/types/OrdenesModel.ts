@@ -2,20 +2,17 @@ import type { Detalle } from './DetalleModel';
 import type { Pago } from './PagoModel';
 
 export interface Orden {
-    CreadoPorId: number;
-    FechaCreacion: Date;
-    ModificadoPorId: number;
-    FechaModificacion: Date;
-
-    Id: number;
-    NumeroFactura: string;
-    PacienteId: number;
-    TasaBcv: number;
-    TotalBs: number;
-    TotalDivisa: number;
-
-    Detalles: Detalle[];
-    Pagos: Pago[];
-    Estado: number;
+    creadoPorId: number;
+    fechaOrden: Date;
+    modificadoPorId: number;
+    fechaModificacion: Date;
+    id: number;
+    numeroFactura: string;
+    pacienteId: number;
+    tasaBcv: number;
+    totalBs: number;
+    totalDivisa: number;
+    detalles: Detalle[];
+    pagos: Pago[];
+    estado: number;
 }
-    

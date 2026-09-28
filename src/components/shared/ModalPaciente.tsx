@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { PacienteCreateDTO } from '../../types/DTOs/PacienteCreateDTO';
-import type { PacienteUpdateDTO } from '../../types/DTOs/PacienteUpdateDTO';
+import type { PacienteCreateDTO, PacienteUpdateDTO } from '../../types/DTOs/PacienteCreateDTO';
 import type { Paciente } from '../../types/PacienteModel';
 
 // 1. IMPORTAMOS EL CONTEXTO Y LOS PERMISOS
@@ -41,15 +40,16 @@ export function ModalPaciente({ isOpen, onClose, onGuardar, pacienteExistente }:
   useEffect(() => {
     if (isOpen) {
       if (esModoEdicion && pacienteExistente) {
-        setNombre(pacienteExistente.Nombre);
-        setApellido(pacienteExistente.Apellido);
-        setCedula(pacienteExistente.Cedula);
-        setSexo(pacienteExistente.Sexo);
-        setTelefono(pacienteExistente.Telefono);
-        setDireccion(pacienteExistente.Direccion);
-        setFechaNacimiento(formatearFechaParaInput(pacienteExistente.FechaNacimiento));
-        setNombreAcompanante(pacienteExistente.NombreAcompanante || '');
-        setCedulaAcompanante(pacienteExistente.CedulaAcompanante || '');
+        // CORRECCIÓN: Leemos en camelCase según el modelo
+        setNombre(pacienteExistente.nombre);
+        setApellido(pacienteExistente.apellido);
+        setCedula(pacienteExistente.cedula);
+        setSexo(pacienteExistente.sexo);
+        setTelefono(pacienteExistente.telefono);
+        setDireccion(pacienteExistente.direccion);
+        setFechaNacimiento(formatearFechaParaInput(pacienteExistente.fechaNacimiento));
+        setNombreAcompanante(pacienteExistente.nombreAcompanante || '');
+        setCedulaAcompanante(pacienteExistente.cedulaAcompanante || '');
       } else {
         setNombre(''); setApellido(''); setCedula(''); setSexo('M'); 
         setTelefono(''); setDireccion(''); setFechaNacimiento('');
@@ -70,13 +70,13 @@ export function ModalPaciente({ isOpen, onClose, onGuardar, pacienteExistente }:
 
     if (esModoEdicion && pacienteExistente) {
         const pacienteActualizado: PacienteUpdateDTO = {
-            Id: pacienteExistente.Id,
-            Nombre: nombre,
-            Apellido: apellido,
-            Cedula: cedula,
-            Sexo: sexo,
-            Telefono: telefono,
-            Direccion: direccion,
+            id: pacienteExistente.id,
+            nombre: nombre,
+            apellido: apellido,
+            cedula: cedula,
+            sexo: sexo,
+            telefono: telefono,
+            direccion: direccion,
             ...(nombreAcompanante && { NombreAcompanante: nombreAcompanante }),
             ...(cedulaAcompanante && { CedulaAcompanante: cedulaAcompanante }),
             ...(fechaNacimiento && { FechaNacimiento: new Date(fechaNacimiento) })
@@ -84,12 +84,12 @@ export function ModalPaciente({ isOpen, onClose, onGuardar, pacienteExistente }:
         onGuardar(pacienteActualizado);
     } else {
         const pacienteCreado: PacienteCreateDTO = {
-            Nombre: nombre,
-            Apellido: apellido,
-            Cedula: cedula,
-            Sexo: sexo,
-            Telefono: telefono,
-            Direccion: direccion,
+            nombre: nombre,
+            apellido: apellido,
+            cedula: cedula,
+            sexo: sexo,
+            telefono: telefono,
+            direccion: direccion,
             ...(nombreAcompanante && { NombreAcompanante: nombreAcompanante }),
             ...(cedulaAcompanante && { CedulaAcompanante: cedulaAcompanante }),
             ...(fechaNacimiento && { FechaNacimiento: new Date(fechaNacimiento) })
