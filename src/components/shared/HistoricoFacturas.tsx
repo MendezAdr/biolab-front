@@ -109,6 +109,7 @@ export function HistoricoFacturas() {
                 <th className="p-4">N° Documento</th>
                 <th className="p-4">Fecha</th>
                 <th className="p-4">ID Paciente</th>
+                <th className="p-4">Nombre Paciente</th>
                 <th className="p-4 text-right">Total (USD)</th>
                 <th className="p-4 text-center">Acciones</th>
               </tr>
@@ -127,6 +128,7 @@ export function HistoricoFacturas() {
                   // CORRECCIÓN: Leemos fechaOrden primero según lo que revela el backend
                   const fecha = factura.fechaOrden ?? (factura as any).FechaOrden;
                   const paciente = factura.pacienteId ?? (factura as any).PacienteId;
+                  const nombrePaciente = factura.nombrePaciente ?? (factura as any).NombrePacinte;
                   const total = factura.totalDivisa ?? (factura as any).TotalDivisa;
 
                   return (
@@ -134,6 +136,7 @@ export function HistoricoFacturas() {
                       <td className="p-4 font-mono font-semibold text-emerald-700">{numFactura}</td>
                       <td className="p-4 text-slate-500">{formatearFechaSegura(fecha)}</td>
                       <td className="p-4 text-slate-600">{paciente}</td>
+                      <td className="p-4 text-slate-600">{nombrePaciente}</td>
                       <td className="p-4 font-bold text-slate-800 text-right">${total}</td>
                       <td className="p-4 text-center">
                         <button 

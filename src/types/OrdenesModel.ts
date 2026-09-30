@@ -9,6 +9,7 @@ export interface Orden {
     id: number;
     numeroFactura: string;
     pacienteId: number;
+    nombrePaciente: string;
     tasaBcv: number;
     totalBs: number;
     totalDivisa: number;

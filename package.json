@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:backend": "dotnet run --project ../BioLabApi.csproj",
+    "dev:backend": "dotnet watch run --project ../BioLabApi/BioLabApi.csproj",
     "dev:all": "concurrently -c \"cyan,magenta\" -n \"REACT,DOTNET\" \"pnpm run dev\" \"pnpm run dev:backend\"",
     "build": "vite build",
     "lint": "eslint .",

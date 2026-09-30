@@ -22,7 +22,7 @@ export function ModalNuevaOrden({ isOpen, onClose, onGuardar }: ModalNuevaOrdenP
 
   useEffect(() => {
     if (isOpen) {
-      setNumeroFactura(`ORD-${Math.floor(Math.random() * 9000) + 1000}`);
+      setNumeroFactura(`ORD-${Math.floor(Math.random() * 900) + 100}`);
       setPacienteId(0);
       setTotalDivisa('');
       setTasaBcv('');
