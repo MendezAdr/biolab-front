@@ -4,6 +4,7 @@ import { ordenesService } from '../../services/ordenesService';
 import { pacienteService } from '../../services/pacienteService';
 import { impresionesService, type ReporteCaja, type ReportePacientes, type ReporteMorosos } from '../../services/ImpresionesService';
 import { PDFViewer, PDFDownloadLink, Document, Page } from '@react-pdf/renderer';
+import { BlobProvider } from '@react-pdf/renderer';
 
 // Importaciones de las plantillas PDF
 import { ReporteCajaPDF } from '../pdf/ReporteCajaPDF';

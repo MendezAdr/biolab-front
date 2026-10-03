@@ -2,14 +2,12 @@ import { apiClient, AppConfig } from '../config/ApiClient';
 import type { PagoUpdateDTO } from '../types/DTOs/PagoUpdateDTO'; 
 import type { PagoStandaloneCreateDTO } from '../types/DTOs/PagoStandaloneCreateDTO'; 
 
-// Mocks adaptados a camelCase
 const pagosMockData = [
     { id: 1, ordenId: 101, monto: 50.00, metodo: 1, referencia: 'ABC123XYZ' },
     { id: 2, ordenId: 102, monto: 75.00, metodo: 2, referencia: 'DEF456UVW' }, 
     { id: 3, ordenId: 103, monto: 100.00, metodo: 3, referencia: 'GHI789RST' }
 ];
 
-// Interceptor global de Errores 400
 const manejarErrorHttp = (error: any, mensajePorDefecto: string) => {
     if (error.response?.status === 400 && error.response?.data?.errors) {
         const errores = error.response.data.errors;
@@ -34,7 +32,31 @@ const manejarErrorHttp = (error: any, mensajePorDefecto: string) => {
 
 export const pagosService = {
     // --------------------------------------------------------
-    // MÉTODOS GET
+    // NUEVO MÉTODO GLOBAL
+    // --------------------------------------------------------
+    getAll: async () => {
+        if (AppConfig.usarMocks) {
+            return new Promise((resolve) => setTimeout(() => resolve(pagosMockData), 500));
+        }
+
+        try {
+            const response = await apiClient.get(`/pagos`);
+            const resultado = response.data;
+            const exito = resultado.Success ?? resultado.success ?? resultado.Exito ?? resultado.exito;
+
+            if (exito === false) {
+                throw new Error(resultado.Message ?? resultado.mensaje ?? "Error al obtener historial de pagos.");
+            }
+
+            return resultado.Data ?? resultado.data ?? [];
+        } catch (error: any) {
+            if (error.response?.status === 404) return []; 
+            throw manejarErrorHttp(error, "Fallo de conexión al cargar los pagos.");
+        }
+    },
+
+    // --------------------------------------------------------
+    // MÉTODOS GET RESTANTES
     // --------------------------------------------------------
     
     getById: async (id: number) => {
@@ -120,10 +142,6 @@ export const pagosService = {
             throw manejarErrorHttp(error, "Error al buscar el pago por número de referencia.");
         }
     },
-
-    // --------------------------------------------------------
-    // MÉTODOS GET CON QUERY PARAMS
-    // --------------------------------------------------------
     
     getByFechas: async (fechaInicio?: Date, fechaFin?: Date) => {
         if (AppConfig.usarMocks){
@@ -161,7 +179,7 @@ export const pagosService = {
         
         try {
             const response = await apiClient.post('/pagos', pago, {
-                headers: { 'X-Admin-Id': usuarioId } // Ajustado a la convención de tu backend si aplica
+                headers: { 'X-Usuario-Id': usuarioId } // CORRECCIÓN
             });
             const resultado = response.data;
             const exito = resultado.Success ?? resultado.success ?? resultado.Exito ?? resultado.exito;
@@ -183,7 +201,7 @@ export const pagosService = {
         
         try {
             const response = await apiClient.put(`/pagos/${id}`, pagoActualizado, {
-                headers: { 'X-Admin-Id': usuarioId }
+                headers: { 'X-Usuario-Id': usuarioId } // CORRECCIÓN
             });
             const resultado = response.data;
             const exito = resultado.Success ?? resultado.success ?? resultado.Exito ?? resultado.exito;
@@ -205,7 +223,7 @@ export const pagosService = {
         
         try {
             const response = await apiClient.delete(`/pagos/${id}`, {
-                headers: { 'X-Admin-Id': usuarioId }
+                headers: { 'X-Usuario-Id': usuarioId } // CORRECCIÓN
             });
             const resultado = response.data;
             const exito = resultado.Success ?? resultado.success ?? resultado.Exito ?? resultado.exito;

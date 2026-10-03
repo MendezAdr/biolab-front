@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import toast, { Toaster } from 'react-hot-toast'; 
 import { pacienteService } from '../../services/pacienteService';
 import type { PacienteCreateDTO, PacienteUpdateDTO } from '../../types/DTOs/PacienteCreateDTO';
@@ -6,16 +6,13 @@ import type { PacienteCreateDTO, PacienteUpdateDTO } from '../../types/DTOs/Paci
 import { ModalPaciente } from './ModalPaciente';
 import type { Paciente } from '../../types/PacienteModel';
 
-// 1. IMPORTAMOS EL CONTEXTO Y LOS PERMISOS
 import { useAuth } from '../../context/AuthContext';
 import { PERMISOS } from '../../types/AuthTypes';
 
 export function TablaPacientes() {
-  // 2. EXTRAEMOS LA SESIÓN ACTUAL
   const { usuario, tienePermiso } = useAuth();
   const currentUserId = usuario?.id || 1; 
   
-  // Evaluamos el permiso
   const puedeGestionarPacientes = tienePermiso(PERMISOS.MODIFICAR_PACIENTES);
 
   const [listaPacientes, setListaPacientes] = useState<Paciente[]>([]); 
@@ -23,6 +20,10 @@ export function TablaPacientes() {
   
   const [modalAbierto, setModalAbierto] = useState(false);
   const [pacienteAEditar, setPacienteAEditar] = useState<Paciente | null>(null);
+
+  // ESTADOS PARA BÚSQUEDA Y ORDENAMIENTO
+  const [terminoBusqueda, setTerminoBusqueda] = useState('');
+  const [configuracionOrden, setConfiguracionOrden] = useState<{ campo: string, direccion: 'asc' | 'desc' } | null>(null);
 
   const cargarPacientes = async () => {
     try {
@@ -58,17 +59,6 @@ export function TablaPacientes() {
     setModalAbierto(true);
   };
 
-  /* const desactivarPaciente = async (id: number, nombre: string) => {
-    if(window.confirm(`¿Estás seguro de que deseas desactivar el registro de ${nombre}?`)) {
-      try {
-        await pacienteService.deactivate(id, currentUserId);
-        toast.success("Paciente desactivado del sistema.");
-        cargarPacientes();
-      } catch (err: any) {
-         toast.error(err.message || "Error al intentar desactivar el paciente.");
-      }
-    }
-  }; */
   const alternarEstadoPaciente = async (id: number, nombre: string, estadoActual: boolean) => {
     const accionText = estadoActual ? 'desactivar' : 'activar';
     if(window.confirm(`¿Estás seguro de que deseas ${accionText} el registro de ${nombre}?`)) {
@@ -76,7 +66,6 @@ export function TablaPacientes() {
         if (estadoActual) {
             await pacienteService.deactivate(id, currentUserId);
         } else {
-            // Asumimos que pasar 'true' al método activate reactiva el registro
             await pacienteService.activate(id, true, currentUserId); 
         }
         toast.success(`Paciente ${estadoActual ? 'desactivado' : 'activado'} correctamente.`);
@@ -86,6 +75,7 @@ export function TablaPacientes() {
       }
     }
   };
+
   const manejarGuardado = async (datos: PacienteCreateDTO | PacienteUpdateDTO) => {
     toast.promise(
       (async () => {
@@ -105,13 +95,72 @@ export function TablaPacientes() {
     );
   };
 
+  // ------------------------------------------------------------------
+  // LÓGICA DE PROCESAMIENTO (BÚSQUEDA Y ORDENAMIENTO)
+  // ------------------------------------------------------------------
+  const manejarOrden = (campo: string) => {
+    let direccion: 'asc' | 'desc' = 'asc';
+    if (configuracionOrden && configuracionOrden.campo === campo && configuracionOrden.direccion === 'asc') {
+      direccion = 'desc';
+    }
+    setConfiguracionOrden({ campo, direccion });
+  };
+
+  const resetearFiltros = () => {
+    setTerminoBusqueda('');
+    setConfiguracionOrden(null);
+  };
+
+  const pacientesProcesados = useMemo(() => {
+    let datos = [...listaPacientes];
+
+    // 1. Filtrado por Búsqueda (Nombre, Apellido o Cédula)
+    if (terminoBusqueda) {
+      const busquedaLower = terminoBusqueda.toLowerCase();
+      datos = datos.filter(paciente => {
+        const nombreFull = `${paciente.nombre ?? (paciente as any).Nombre ?? ''} ${paciente.apellido ?? (paciente as any).Apellido ?? ''}`.toLowerCase();
+        const cedula = String(paciente.cedula ?? (paciente as any).Cedula ?? '').toLowerCase();
+        
+        return nombreFull.includes(busquedaLower) || cedula.includes(busquedaLower);
+      });
+    }
+
+    // 2. Ordenamiento de Columnas
+    if (configuracionOrden) {
+      datos.sort((a, b) => {
+        const { campo, direccion } = configuracionOrden;
+        
+        // Soporte de variables en camelCase y PascalCase
+        let valorA = (a as any)[campo] ?? (a as any)[campo.charAt(0).toUpperCase() + campo.slice(1)];
+        let valorB = (b as any)[campo] ?? (b as any)[campo.charAt(0).toUpperCase() + campo.slice(1)];
+
+        if (typeof valorA === 'string') valorA = valorA.toLowerCase();
+        if (typeof valorB === 'string') valorB = valorB.toLowerCase();
+
+        if (valorA < valorB) return direccion === 'asc' ? -1 : 1;
+        if (valorA > valorB) return direccion === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return datos;
+  }, [listaPacientes, terminoBusqueda, configuracionOrden]);
+
+  const indicadorOrden = (campo: string) => {
+    if (configuracionOrden?.campo === campo) {
+      return configuracionOrden.direccion === 'asc' ? ' ↑' : ' ↓';
+    }
+    return null;
+  };
+
   if (cargando) return <div className="flex justify-center items-center h-64 text-slate-500">Cargando base de datos...</div>;
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm mx-auto max-w-5xl">
       <Toaster position="bottom-right" reverseOrder={false} />
       
-      <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+      {/* CABECERA PRINCIPAL */}
+      <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-white">
         <div>
           <h2 className="text-lg font-semibold text-sky-700">Lista de Pacientes</h2>
           <p className="text-sm text-slate-500">Registro histórico general del laboratorio</p>
@@ -128,43 +177,72 @@ export function TablaPacientes() {
         </div>
       </div>
 
+      {/* BARRA DE HERRAMIENTAS (TOOLBAR) INCRUSTADA */}
+      <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row gap-4 justify-between items-center">
+        <div className="w-full md:w-96 relative">
+          <input 
+            type="text" 
+            placeholder="Buscar por Nombre, Apellido o Cédula..."
+            value={terminoBusqueda}
+            onChange={(e) => setTerminoBusqueda(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-shadow"
+          />
+          <span className="absolute left-3 top-2 text-slate-400">🔍</span>
+        </div>
+        
+        {(terminoBusqueda || configuracionOrden) && (
+          <button 
+            onClick={resetearFiltros}
+            className="px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 hover:text-rose-700 rounded-lg transition-colors font-medium whitespace-nowrap"
+          >
+            ✕ Limpiar Filtros
+          </button>
+        )}
+      </div>
+
+      {/* TABLA */}
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-white text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
-              <th className="p-4">Paciente</th>
-              <th className="p-4">Cédula</th>
-              <th className="p-4">Teléfono</th>
-              <th className="p-4">Sexo</th>
+            <tr className="bg-white text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-200 select-none">
+              <th onClick={() => manejarOrden('nombre')} className="p-4 cursor-pointer hover:bg-slate-50 transition-colors">
+                Paciente {indicadorOrden('nombre')}
+              </th>
+              <th onClick={() => manejarOrden('cedula')} className="p-4 cursor-pointer hover:bg-slate-50 transition-colors">
+                Cédula {indicadorOrden('cedula')}
+              </th>
+              <th onClick={() => manejarOrden('telefono')} className="p-4 cursor-pointer hover:bg-slate-50 transition-colors">
+                Teléfono {indicadorOrden('telefono')}
+              </th>
+              <th onClick={() => manejarOrden('sexo')} className="p-4 cursor-pointer hover:bg-slate-50 transition-colors">
+                Sexo {indicadorOrden('sexo')}
+              </th>
               <th className="p-4 text-center">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-            {listaPacientes.length === 0 ? (
+            {pacientesProcesados.length === 0 ? (
               <tr>
                 <td colSpan={5} className="p-12 text-center text-slate-400">
-                  <p>No hay pacientes registrados en el sistema actualmente.</p>
+                  <p>No se encontraron pacientes con los filtros actuales.</p>
                 </td>
               </tr>
             ) : (
-              listaPacientes.map((paciente) => {
-                const id = paciente.id;
-                const nombre =  paciente.nombre;
-                const apellido = paciente.apellido;
-                const cedula =  paciente.cedula;
-                const telefono = paciente.telefono;
-                const sexo = paciente.sexo;
+              pacientesProcesados.map((paciente) => {
+                const id = paciente.id ?? (paciente as any).Id;
+                const nombre =  paciente.nombre ?? (paciente as any).Nombre;
+                const apellido = paciente.apellido ?? (paciente as any).Apellido;
+                const cedula =  paciente.cedula ?? (paciente as any).Cedula;
+                const telefono = paciente.telefono ?? (paciente as any).Telefono;
+                const sexo = paciente.sexo ?? (paciente as any).Sexo;
                 
-                // Extraemos el estado (contingencia por si el backend lo manda en PascalCase)
                 const isActive = paciente.isActive ?? (paciente as any).IsActive ?? true;
 
                 return (
-                  // Cambiamos el fondo y la opacidad si el paciente está inactivo
                   <tr key={id} className={`transition-colors ${!isActive ? 'bg-rose-50/40 opacity-75' : 'hover:bg-slate-50'}`}>
                     <td className="p-4">
                       <div className="font-semibold text-slate-800">
                         {nombre} {apellido}
-                        {/* Etiqueta visual para destacar inactivos */}
                         {!isActive && (
                           <span className="ml-2 text-[10px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
                             Inactivo
@@ -191,7 +269,6 @@ export function TablaPacientes() {
                         </button>
                       </div>
 
-                      {/* BOTÓN DINÁMICO: Cambia texto y color según el estado */}
                       <div className="inline-block" title={!puedeGestionarPacientes ? "Tu rol no tiene permiso para alterar el estado." : ""}>
                         <button 
                           onClick={() => alternarEstadoPaciente(id, nombre, isActive)}

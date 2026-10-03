@@ -42,12 +42,12 @@ export const impresionesService = {
         const sumatoriaMetodos: Record<number, number> = {};
 
         ordenes.forEach(orden => {
-            totalFacturadoDivisa += orden.TotalDivisa;
-            totalFacturadoBs += (orden.TotalDivisa * orden.TasaBcv);
-            if (orden.Pagos && orden.Pagos.length > 0) {
-                orden.Pagos.forEach(pago => {
-                    if (!sumatoriaMetodos[pago.Metodo]) sumatoriaMetodos[pago.Metodo] = 0;
-                    sumatoriaMetodos[pago.Metodo] += pago.Monto;
+            totalFacturadoDivisa += orden.totalDivisa;
+            totalFacturadoBs += (orden.totalDivisa * orden.tasaBcv);
+            if (orden.pagos && orden.pagos.length > 0) {
+                orden.pagos.forEach(pago => {
+                    if (!sumatoriaMetodos[pago.metodo]) sumatoriaMetodos[pago.metodo] = 0;
+                    sumatoriaMetodos[pago.metodo] += pago.monto;
                 });
             }
         });
@@ -74,7 +74,7 @@ export const impresionesService = {
             fechaGeneracion: new Date(),
             totalPacientes: pacientes.length,
             // Ordenamos alfabéticamente por nombre
-            pacientes: [...pacientes].sort((a, b) => a.Nombre.localeCompare(b.Nombre))
+            pacientes: [...pacientes].sort((a, b) => a.nombre.localeCompare(b.nombre))
         };
     },
 
@@ -82,25 +82,25 @@ export const impresionesService = {
     generarReporteMorosos: (ordenes: Orden[], pacientes: Paciente[]): ReporteMorosos => {
         const ordenesPendientes = ordenes.filter(o => {
             // Asumiendo que 2 = Pendiente y 3 = Parcial en tu EstadoPagoEnum
-            return o.Estado === 2 || o.Estado === 3 ;
+            return o.estado === 2 || o.estado === 3 ;
         });
 
         let totalDeuda = 0;
 
         const ordenesMapeadas = ordenesPendientes.map(orden => {
-            const paciente = pacientes.find(p => p.Id === orden.PacienteId);
-            const totalPagado = orden.Pagos?.reduce((acc, p) => acc + p.Monto, 0) || 0;
-            const deuda = orden.TotalDivisa - totalPagado;
+            const paciente = pacientes.find(p => p.id === orden.pacienteId);
+            const totalPagado = orden.pagos?.reduce((acc, p) => acc + p.monto, 0) || 0;
+            const deuda = orden.totalDivisa - totalPagado;
             
             totalDeuda += deuda;
 
             return {
-                ordenId: orden.Id,
-                numeroFactura: orden.NumeroFactura,
-                pacienteNombre: paciente ? `${paciente.Nombre} ${paciente.Apellido}` : 'Desconocido',
-                pacienteCedula: paciente ? paciente.Cedula : 'N/A',
-                fechaEmision: new Date(orden.FechaCreacion),
-                totalOrden: orden.TotalDivisa,
+                ordenId: orden.id,
+                numeroFactura: orden.numeroFactura,
+                pacienteNombre: paciente ? `${paciente.nombre} ${paciente.apellido}` : 'Desconocido',
+                pacienteCedula: paciente ? paciente.cedula : 'N/A',
+                fechaEmision: new Date(orden.fechaOrden),
+                totalOrden: orden.totalDivisa,
                 montoPagado: totalPagado,
                 deudaPendiente: deuda
             };

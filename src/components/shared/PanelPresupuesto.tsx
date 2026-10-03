@@ -1,18 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import toast, { Toaster } from 'react-hot-toast'; // Integración de notificaciones elegantes
+import toast, { Toaster } from 'react-hot-toast'; 
 import { examenesService } from '../../services/examenesService';
 import { tasaService } from '../../services/tasaService';
 import type { Examen } from '../../types/ExamenModel';
 
-// IMPORTACIÓN DEL CONTEXTO Y LOS PERMISOS
 import { useAuth } from '../../context/AuthContext';
 import { PERMISOS } from '../../types/AuthTypes';
 
 export function PanelPresupuestos() {
   const { tienePermiso } = useAuth();
   
-  // VERIFICACIÓN DE PERMISOS
   const puedeCrearOrden = tienePermiso(PERMISOS.CREAR_ORDENES_Y_DETALLES);
   const puedeGestionarPresupuestos = tienePermiso(PERMISOS.GESTIONAR_PRESUPUESTOS);
 
@@ -20,14 +18,17 @@ export function PanelPresupuestos() {
   const [tasaBcv, setTasaBcv] = useState<number>(0);
   const [cargando, setCargando] = useState(true);
   
+  // DATOS DEL CLIENTE (Texto libre, sin forzar registro en BD)
   const [nombreCliente, setNombreCliente] = useState('');
+  const [cedulaCliente, setCedulaCliente] = useState('');
+  const [telefonoCliente, setTelefonoCliente] = useState('');
+
   const [busquedaExamen, setBusquedaExamen] = useState('');
   const [carrito, setCarrito] = useState<Examen[]>([]);
 
   const navigate = useNavigate();
 
   useEffect(() => {
-    // PREVENCIÓN DE PETICIONES INNECESARIAS: Solo cargamos datos si tiene acceso al módulo
     if (puedeGestionarPresupuestos) {
       const cargarDatos = async () => {
         try {
@@ -54,7 +55,6 @@ export function PanelPresupuestos() {
     if (!busquedaExamen) return examenesBD;
     const busquedaLower = busquedaExamen.toLowerCase();
     return examenesBD.filter(e => {
-      // LECTURA EN camelCase CON CONTINGENCIA
       const nombreSeguro = String(e.nombreExamen ?? (e as any).NombreExamen ?? '').toLowerCase();
       return nombreSeguro.includes(busquedaLower);
     });
@@ -74,10 +74,11 @@ export function PanelPresupuestos() {
   const limpiarPresupuesto = () => {
     setCarrito([]);
     setNombreCliente('');
+    setCedulaCliente('');
+    setTelefonoCliente('');
     setBusquedaExamen('');
   };
 
-  // CÁLCULO ESTRICTO EN camelCase
   const totalDivisa = carrito.reduce((acc, ex) => acc + (ex.costoEnDivisa ?? (ex as any).CostoEnDivisa ?? 0), 0);
   const totalBolivares = totalDivisa * tasaBcv;
   
@@ -92,10 +93,13 @@ export function PanelPresupuestos() {
       return;
     }
     
+    // Armamos el payload con la estructura exacta que espera el PresupuestoPDF
     const paqueteImpresion = {
       tipoDocumento: 'presupuesto',
       datos: {
-        cliente: nombreCliente || 'No especificado',
+        clienteNombre: nombreCliente || 'Público General',
+        clienteCedula: cedulaCliente || 'N/A',
+        clienteTelefono: telefonoCliente || 'N/A',
         examenes: carrito,
         totalDivisa: totalDivisa,
         totalBolivares: totalBolivares,
@@ -107,7 +111,6 @@ export function PanelPresupuestos() {
     navigate('/impresiones', { state: paqueteImpresion });
   };
 
-  // PANTALLA DE RESTRICCIÓN DE ACCESO
   if (!puedeGestionarPresupuestos) {
     return (
       <div className="flex flex-col items-center justify-center p-12 bg-white border border-slate-200 rounded-xl shadow-sm mx-auto max-w-2xl mt-12 text-center">
@@ -128,6 +131,7 @@ export function PanelPresupuestos() {
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
+        {/* COLUMNA IZQUIERDA: BÚSQUEDA Y CATÁLOGO */}
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
             <h3 className="font-bold text-slate-700 mb-4 border-b pb-2">Selección de Exámenes</h3>
@@ -168,21 +172,40 @@ export function PanelPresupuestos() {
           </div>
         </div>
 
+        {/* COLUMNA DERECHA: DATOS DEL CLIENTE, CARRITO Y TOTALES */}
         <div className="lg:col-span-1">
           <div className="bg-slate-800 text-white p-5 rounded-xl shadow-lg sticky top-6">
-            <h3 className="font-bold text-lg mb-4 border-b border-slate-600 pb-2">Detalle del Presupuesto</h3>
+            <h3 className="font-bold text-lg mb-4 border-b border-slate-600 pb-2">Datos del Cliente (Opcional)</h3>
             
-            <div className="mb-4">
-              <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Nombre del Cliente (Opcional)</label>
-              <input 
-                type="text" 
-                value={nombreCliente}
-                onChange={(e) => setNombreCliente(e.target.value)}
-                placeholder="Ej. Juan Pérez"
-                className="w-full border border-slate-600 rounded-lg px-3 py-2 text-sm bg-slate-700 text-white focus:outline-none focus:border-emerald-500"
-              />
+            <div className="space-y-3 mb-6">
+              <div>
+                <input 
+                  type="text" 
+                  value={nombreCliente}
+                  onChange={(e) => setNombreCliente(e.target.value)}
+                  placeholder="Nombre Completo"
+                  className="w-full border border-slate-600 rounded-lg px-3 py-2 text-sm bg-slate-700 text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  value={cedulaCliente}
+                  onChange={(e) => setCedulaCliente(e.target.value)}
+                  placeholder="Cédula (Ej. V-12345)"
+                  className="w-1/2 border border-slate-600 rounded-lg px-3 py-2 text-sm bg-slate-700 text-white focus:outline-none focus:border-emerald-500"
+                />
+                <input 
+                  type="text" 
+                  value={telefonoCliente}
+                  onChange={(e) => setTelefonoCliente(e.target.value)}
+                  placeholder="Teléfono"
+                  className="w-1/2 border border-slate-600 rounded-lg px-3 py-2 text-sm bg-slate-700 text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
             </div>
 
+            <h3 className="font-bold text-lg mb-4 border-b border-slate-600 pb-2">Detalle del Presupuesto</h3>
             <div className="min-h-[150px] max-h-[300px] overflow-y-auto mb-4 space-y-2 pr-2">
               {carrito.length === 0 ? (
                 <p className="text-sm text-slate-400 text-center italic mt-10">Agregue exámenes al presupuesto.</p>
@@ -228,7 +251,7 @@ export function PanelPresupuestos() {
                   disabled={carrito.length === 0 || !puedeCrearOrden}
                   className={`w-full font-bold py-3 rounded-lg transition-colors flex justify-center items-center gap-2 ${(!puedeCrearOrden || carrito.length === 0) ? 'bg-slate-600 text-slate-400 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-400 text-white'}`}
                 >
-                  <span>📝</span> Crear Orden
+                  <span>📝</span> Convertir a Factura
                 </button>
               </div>
 

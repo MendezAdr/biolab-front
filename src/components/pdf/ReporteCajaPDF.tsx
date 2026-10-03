@@ -2,157 +2,103 @@ import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 import type { ReporteCaja } from '../../services/ImpresionesService';
 
-// 1. ESTILOS: Aquí estilizas el PDF igual que CSS, pero usando Flexbox.
 const styles = StyleSheet.create({
-  page: { 
-    padding: 40, 
-    fontFamily: 'Helvetica', 
-    backgroundColor: '#ffffff' 
-  },
-  header: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center',
-    borderBottomWidth: 2, 
-    borderBottomColor: '#0f172a', 
-    paddingBottom: 10, 
-    marginBottom: 20 
-  },
-  logo: { 
-    width: 60, // Ajusta según tu imagen
-    height: 60 
-  },
-  titleContainer: { 
-    textAlign: 'right' 
-  },
-  title: { 
-    fontSize: 18, 
-    fontWeight: 'bold', 
-    color: '#0f172a' 
-  },
-  subtitle: { 
-    fontSize: 10, 
-    color: '#64748b', 
-    marginTop: 4 
-  },
-  section: { 
-    marginBottom: 15, 
-    flexDirection: 'row', 
-    justifyContent: 'space-between' 
-  },
-  textNormal: { 
-    fontSize: 10, 
-    color: '#334155', 
-    marginBottom: 4 
-  },
-  textBold: { 
-    fontSize: 10, 
-    fontWeight: 'bold', 
-    color: '#0f172a' 
-  },
-  table: { 
-    width: 'auto', 
-    marginTop: 10 
-  },
-  tableHeader: { 
-    flexDirection: 'row', 
-    backgroundColor: '#f1f5f9', 
-    borderBottomWidth: 1, 
-    borderBottomColor: '#cbd5e1', 
-    padding: 8 
-  },
-  tableRow: { 
-    flexDirection: 'row', 
-    borderBottomWidth: 1, 
-    borderBottomColor: '#f1f5f9', 
-    padding: 8 
-  },
-  col1: { width: '70%' },
-  col2: { width: '30%', textAlign: 'right' },
-  footer: { 
-    position: 'absolute', 
-    bottom: 30, 
-    left: 40, 
-    right: 40, 
-    textAlign: 'center', 
-    fontSize: 8, 
-    color: '#94a3b8', 
-    borderTopWidth: 1, 
-    borderColor: '#e2e8f0', 
-    paddingTop: 10 
-  }
+  page: { padding: 30, fontFamily: 'Helvetica', fontSize: 10, color: '#000000', backgroundColor: '#ffffff' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
+  logoBox: { width: '25%' },
+  logo: { width: 70, height: 70, objectFit: 'contain' },
+  titleBox: { width: '50%', textAlign: 'center', justifyContent: 'center' },
+  labTitle: { fontSize: 14, fontWeight: 'bold' },
+  docInfoBox: { width: '25%', textAlign: 'right', justifyContent: 'center' },
+  docTitle: { fontSize: 14, fontWeight: 'bold', marginBottom: 4 },
+  
+  infoSection: { border: '1pt solid #000', padding: 8, marginBottom: 15, flexDirection: 'row', justifyContent: 'space-between' },
+  rowText: { marginBottom: 3 },
+  bold: { fontWeight: 'bold' },
+
+  table: { width: '100%', border: '1pt solid #000', borderBottom: 0 },
+  tableHeader: { flexDirection: 'row', backgroundColor: '#e5e5e5', borderBottom: '1pt solid #000' },
+  tableRow: { flexDirection: 'row', borderBottom: '1pt solid #000' },
+  col1: { width: '60%', padding: 5, borderRight: '1pt solid #000' },
+  col2: { width: '40%', padding: 5, textAlign: 'center' },
+
+  totalesBox: { marginTop: 15, width: '40%', alignSelf: 'flex-end', border: '1pt solid #000', padding: 8 },
+  totalesText: { textAlign: 'right', marginBottom: 4, fontSize: 11 },
+
+  firmasContainer: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 80 },
+  firmaBox: { width: '35%', borderTop: '1pt solid #000', paddingTop: 4, textAlign: 'center' },
+
+  footerText: { position: 'absolute', bottom: 30, left: 0, right: 0, textAlign: 'center', fontSize: 9, fontWeight: 'bold' }
 });
 
-interface ReporteCajaPDFProps {
-  reporte: ReporteCaja;
-  usuarioNombre: string;
-}
+interface Props { reporte: ReporteCaja; usuarioNombre: string; }
 
-// 2. EL DOCUMENTO: Usamos las etiquetas especiales de la librería
-export function ReporteCajaPDF({ reporte, usuarioNombre }: ReporteCajaPDFProps) {
+export function ReporteCajaPDF({ reporte, usuarioNombre }: Props) {
+  const desgloseSeguro = Array.isArray(reporte?.desglosePorMetodo) ? reporte.desglosePorMetodo : [];
+  const totalFacturadoDivisa = Number(reporte?.totalFacturadoDivisa) || 0;
+  const totalFacturadoBs = Number(reporte?.totalFacturadoBs) || 0;
+
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        
-        {/* ENCABEZADO CON LOGO */}
         <View style={styles.header}>
-          {/* Asegúrate de poner una imagen real en tu carpeta public */}
-          <Image src="/assets/img/logo-biolab.png" style={styles.logo} />
-          
-          <View style={styles.titleContainer}>
-            <Text style={styles.title}>LABORATORIO RIV_CARR</Text>
-            <Text style={styles.subtitle}>Cierre y Totalización de Caja</Text>
+          <View style={styles.logoBox}>
+            <Image src="/img/logo-RIV_CARR.png" style={styles.logo} />
+          </View>
+          <View style={styles.titleBox}>
+            <Text style={styles.labTitle}>LABORATORIO CLÍNICO</Text>
+            <Text style={styles.labTitle}>RIV_CARR, C.A.</Text>
+          </View>
+          <View style={styles.docInfoBox}>
+            <Text style={styles.docTitle}>CIERRE DE CAJA</Text>
+            <Text>FECHA: {new Date().toLocaleDateString()}</Text>
           </View>
         </View>
 
-        {/* INFORMACIÓN DEL REPORTE */}
-        <View style={styles.section}>
+        <View style={styles.infoSection}>
           <View>
-            <Text style={styles.textNormal}><Text style={styles.textBold}>Periodo:</Text> {reporte.rango.inicio} al {reporte.rango.fin}</Text>
-            <Text style={styles.textNormal}><Text style={styles.textBold}>Órdenes Procesadas:</Text> {reporte.totalOrdenes}</Text>
+            <Text style={styles.rowText}><Text style={styles.bold}>PERIODO:</Text> {reporte?.rango?.inicio || 'N/A'} al {reporte?.rango?.fin || 'N/A'}</Text>
+            <Text style={styles.rowText}><Text style={styles.bold}>ÓRDENES PROCESADAS:</Text> {reporte?.totalOrdenes || 0}</Text>
           </View>
           <View style={{ textAlign: 'right' }}>
-            <Text style={styles.textNormal}><Text style={styles.textBold}>Generado:</Text> {new Date().toLocaleDateString()}</Text>
-            <Text style={styles.textNormal}><Text style={styles.textBold}>Usuario:</Text> {usuarioNombre}</Text>
+            <Text style={styles.rowText}><Text style={styles.bold}>CAJERO:</Text> {usuarioNombre}</Text>
           </View>
         </View>
-    
-        {/* TABLA DE DESGLOSE */}
-        <Text style={{ fontSize: 12, fontWeight: 'bold', marginTop: 10 }}>Desglose por Método de Pago</Text>
+
+        <Text style={[styles.bold, { marginBottom: 5 }]}>DESGLOSE DE INGRESOS POR MÉTODO DE PAGO</Text>
         <View style={styles.table}>
           <View style={styles.tableHeader}>
-            <View style={styles.col1}><Text style={styles.textBold}>Método de Pago</Text></View>
-            <View style={styles.col2}><Text style={styles.textBold}>Monto (USD)</Text></View>
+            <View style={styles.col1}><Text style={styles.bold}>MÉTODO DE PAGO</Text></View>
+            <View style={styles.col2}><Text style={styles.bold}>MONTO (USD)</Text></View>
           </View>
           
-          {reporte.desglosePorMetodo.map((metodo, index) => (
-            <View key={index} style={styles.tableRow}>
-              <View style={styles.col1}><Text style={styles.textNormal}>{metodo.nombre}</Text></View>
-              <View style={styles.col2}><Text style={styles.textNormal}>${metodo.montoTotal.toFixed(2)}</Text></View>
-            </View>
-          ))}
+          {desgloseSeguro.map((metodo: any, index: number) => {
+            const monto = Number(metodo.montoTotal) || 0;
+            return (
+              <View key={index} style={styles.tableRow} wrap={false}>
+                <View style={styles.col1}><Text>{metodo.nombre}</Text></View>
+                <View style={styles.col2}><Text>${monto.toFixed(2)}</Text></View>
+              </View>
+            );
+          })}
         </View>
 
-        {/* TOTALES */}
-        <View style={{ marginTop: 20, alignItems: 'flex-end' }}>
-          <View style={{ width: '40%', backgroundColor: '#f8fafc', padding: 10, borderRadius: 4 }}>
-            <Text style={{ fontSize: 10, marginBottom: 5 }}>Facturado (VES): Bs. {reporte.totalFacturadoBs.toFixed(2)}</Text>
-            <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#0f172a' }}>TOTAL USD: ${reporte.totalFacturadoDivisa.toFixed(2)}</Text>
-          </View>
+        <View style={styles.totalesBox}>
+          <Text style={styles.totalesText}><Text style={styles.bold}>TOTAL (VES):</Text> B.S {totalFacturadoBs.toFixed(2)}</Text>
+          <Text style={[styles.totalesText, { fontSize: 13, marginTop: 4 }]}><Text style={styles.bold}>TOTAL (USD):</Text> ${totalFacturadoDivisa.toFixed(2)}</Text>
         </View>
 
-        {/* FIRMAS (Al fondo de la página) */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 100 }}>
-           <View style={{ borderTopWidth: 1, borderColor: '#000', width: 150, alignItems: 'center', paddingTop: 5 }}>
-              <Text style={styles.textBold}>Firma del Cajero</Text>
+        <View style={styles.firmasContainer}>
+           <View style={styles.firmaBox}>
+              <Text style={styles.bold}>FIRMA DEL CAJERO</Text>
            </View>
-           <View style={{ borderTopWidth: 1, borderColor: '#000', width: 150, alignItems: 'center', paddingTop: 5 }}>
-              <Text style={styles.textBold}>Firma del Administrador</Text>
+           <View style={styles.firmaBox}>
+              <Text style={styles.bold}>FIRMA DEL ADMINISTRADOR</Text>
            </View>
         </View>
 
-        <Text style={styles.footer}>
-          Documento generado por el sistema automatizado BioLab. Este reporte es de uso interno.
+        <Text style={styles.footerText} fixed>
+          DOCUMENTO DE CONTROL INTERNO - SISTEMA AUTOMATIZADO BIOLAB
         </Text>
       </Page>
     </Document>

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import toast, { Toaster } from 'react-hot-toast'; // Notificaciones asíncronas
+import React, { useState, useEffect, useMemo } from 'react';
+import toast, { Toaster } from 'react-hot-toast'; 
 import { pagosService } from '../../services/pagosService';
 import { ModalRegistroPago } from './ModalRegistroPagos';
 import type { PagoStandaloneCreateDTO } from '../../types/DTOs/PagoStandaloneCreateDTO';
@@ -22,11 +22,15 @@ export function PanelPagos() {
   const [modalAbierto, setModalAbierto] = useState(false);
   const [pagoAEditar, setPagoAEditar] = useState<Pago | null>(null);
 
+  // ESTADOS PARA BÚSQUEDA Y ORDENAMIENTO
+  const [terminoBusqueda, setTerminoBusqueda] = useState('');
+  const [configuracionOrden, setConfiguracionOrden] = useState<{ campo: string, direccion: 'asc' | 'desc' } | null>(null);
+
   const cargarPagos = async () => {
     try {
       setCargando(true);
       setError(null);
-      const respuesta = await pagosService.getByFechas();
+      const respuesta = await pagosService.getAll();
       setListaPagos(respuesta || []);
     } catch (err) {
       console.error("Error al obtener pagos:", err);
@@ -37,7 +41,6 @@ export function PanelPagos() {
   };
 
   useEffect(() => {
-    // PREVENCIÓN: Solo llamamos al backend si el usuario tiene permiso
     if (puedeGestionarPagos) {
       cargarPagos();
     } else {
@@ -67,7 +70,6 @@ export function PanelPagos() {
     }
   };
 
-  // SISTEMA DE PROMESA: Feedback en tiempo real
   const manejarGuardado = async (datos: PagoStandaloneCreateDTO | PagoUpdateDTO) => {
     toast.promise(
       (async () => {
@@ -86,6 +88,67 @@ export function PanelPagos() {
         error: (err) => err.message || 'Error al procesar el pago.',
       }
     );
+  };
+
+  // ------------------------------------------------------------------
+  // LÓGICA DE PROCESAMIENTO (BÚSQUEDA Y ORDENAMIENTO)
+  // ------------------------------------------------------------------
+  const manejarOrden = (campo: string) => {
+    let direccion: 'asc' | 'desc' = 'asc';
+    if (configuracionOrden && configuracionOrden.campo === campo && configuracionOrden.direccion === 'asc') {
+      direccion = 'desc';
+    }
+    setConfiguracionOrden({ campo, direccion });
+  };
+
+  const resetearFiltros = () => {
+    setTerminoBusqueda('');
+    setConfiguracionOrden(null);
+  };
+
+  const pagosProcesados = useMemo(() => {
+    let datos = [...listaPagos];
+
+    // 1. Filtrado por Búsqueda
+    if (terminoBusqueda) {
+      const busquedaLower = terminoBusqueda.toLowerCase();
+      datos = datos.filter(pago => {
+        const id = String(pago.id ?? (pago as any).Id ?? '');
+        const ordenId = String(pago.ordenId ?? (pago as any).OrdenId ?? '');
+        const referencia = String(pago.referencia ?? (pago as any).Referencia ?? '').toLowerCase();
+        
+        return id.includes(busquedaLower) || 
+               ordenId.includes(busquedaLower) || 
+               referencia.includes(busquedaLower);
+      });
+    }
+
+    // 2. Ordenamiento de Columnas
+    if (configuracionOrden) {
+      datos.sort((a, b) => {
+        const { campo, direccion } = configuracionOrden;
+        
+        // Soporte camelCase y PascalCase
+        let valorA = (a as any)[campo] ?? (a as any)[campo.charAt(0).toUpperCase() + campo.slice(1)];
+        let valorB = (b as any)[campo] ?? (b as any)[campo.charAt(0).toUpperCase() + campo.slice(1)];
+
+        if (typeof valorA === 'string') valorA = valorA.toLowerCase();
+        if (typeof valorB === 'string') valorB = valorB.toLowerCase();
+
+        if (valorA < valorB) return direccion === 'asc' ? -1 : 1;
+        if (valorA > valorB) return direccion === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return datos;
+  }, [listaPagos, terminoBusqueda, configuracionOrden]);
+
+  const indicadorOrden = (campo: string) => {
+    if (configuracionOrden?.campo === campo) {
+      return configuracionOrden.direccion === 'asc' ? ' ↑' : ' ↓';
+    }
+    return null;
   };
 
   // PANTALLA DE RESTRICCIÓN DE ACCESO
@@ -114,6 +177,7 @@ export function PanelPagos() {
     <div className="space-y-6 p-2 max-w-6xl mx-auto">
       <Toaster position="bottom-right" reverseOrder={false} />
       
+      {/* CABECERA PRINCIPAL */}
       <div className="flex justify-between items-center bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
         <div>
           <h2 className="text-xl font-bold text-slate-800">Control de Caja y Abonos</h2>
@@ -131,29 +195,64 @@ export function PanelPagos() {
         </div>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+      {/* CONTENEDOR INTEGRADO: BARRA DE BÚSQUEDA + TABLA */}
+      <div className="bg-white border border-slate-200 text-slate-700 rounded-xl overflow-hidden shadow-sm">
+        
+        {/* BARRA DE HERRAMIENTAS (TOOLBAR) INCRUSTADA */}
+        <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row gap-4 justify-between items-center">
+          <div className="w-full md:w-96 relative">
+            <input 
+              type="text" 
+              placeholder="Buscar por ID de Pago, Orden o Referencia..."
+              value={terminoBusqueda}
+              onChange={(e) => setTerminoBusqueda(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-shadow"
+            />
+            <span className="absolute left-3 top-2 text-slate-400">🔍</span>
+          </div>
+          
+          {(terminoBusqueda || configuracionOrden) && (
+            <button 
+              onClick={resetearFiltros}
+              className="px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 hover:text-rose-700 rounded-lg transition-colors font-medium whitespace-nowrap"
+            >
+              ✕ Limpiar Filtros
+            </button>
+          )}
+        </div>
+
+        {/* TABLA */}
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50 text-slate-600 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
-                <th className="p-4">ID Pago</th>
-                <th className="p-4">Orden (Factura)</th>
-                <th className="p-4">Método</th>
-                <th className="p-4">Referencia</th>
-                <th className="p-4 text-right">Monto (USD)</th>
+              <tr className="bg-white text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-200 select-none">
+                <th onClick={() => manejarOrden('id')} className="p-4 cursor-pointer hover:bg-slate-50 transition-colors">
+                  ID Pago {indicadorOrden('id')}
+                </th>
+                <th onClick={() => manejarOrden('ordenId')} className="p-4 cursor-pointer hover:bg-slate-50 transition-colors">
+                  Orden (Factura) {indicadorOrden('ordenId')}
+                </th>
+                <th onClick={() => manejarOrden('metodo')} className="p-4 cursor-pointer hover:bg-slate-50 transition-colors">
+                  Método {indicadorOrden('metodo')}
+                </th>
+                <th onClick={() => manejarOrden('referencia')} className="p-4 cursor-pointer hover:bg-slate-50 transition-colors">
+                  Referencia {indicadorOrden('referencia')}
+                </th>
+                <th onClick={() => manejarOrden('monto')} className="p-4 text-right cursor-pointer hover:bg-slate-50 transition-colors">
+                  Monto (USD) {indicadorOrden('monto')}
+                </th>
                 <th className="p-4 text-center">Acciones (Admin)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-              {listaPagos.length === 0 ? (
+              {pagosProcesados.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="p-12 text-center text-slate-400">
-                    No hay registros de pagos recientes.
+                    No se encontraron registros de pagos con los filtros actuales.
                   </td>
                 </tr>
               ) : (
-                listaPagos.map((pago) => {
-                  // EXTRACCIÓN SEGURA (camelCase con contingencia)
+                pagosProcesados.map((pago) => {
                   const id = pago.id ?? (pago as any).Id;
                   const ordenId = pago.ordenId ?? (pago as any).OrdenId;
                   const metodo = pago.metodo ?? (pago as any).Metodo;

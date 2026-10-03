@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import toast, { Toaster } from 'react-hot-toast'; 
 import { usuariosService } from '../../services/usuarioService';
 import { rolService } from '../../services/rolService';
@@ -26,6 +26,10 @@ export function TablaUsuarios() {
   const [modalAbierto, setModalAbierto] = useState(false);
   const [usuarioAEditar, setUsuarioAEditar] = useState<Usuario | null>(null);
 
+  // ESTADOS PARA BÚSQUEDA Y ORDENAMIENTO
+  const [terminoBusqueda, setTerminoBusqueda] = useState('');
+  const [configuracionOrden, setConfiguracionOrden] = useState<{ campo: string, direccion: 'asc' | 'desc' } | null>(null);
+
   const cargarDatosIniciales = async () => {
     try {
       setCargando(true);
@@ -48,7 +52,6 @@ export function TablaUsuarios() {
   };
 
   useEffect(() => {
-    // LA SOLUCIÓN: Si no tiene permisos, ni siquiera intentamos hacer la petición al backend
     if (puedeGestionarUsuarios) {
       cargarDatosIniciales();
     } else {
@@ -103,7 +106,82 @@ export function TablaUsuarios() {
     );
   };
 
-  // PANTALLA DE PROTECCIÓN: Si no tiene permisos, mostramos esto y evitamos renderizar la tabla
+  // ------------------------------------------------------------------
+  // LÓGICA DE PROCESAMIENTO (BÚSQUEDA Y ORDENAMIENTO)
+  // ------------------------------------------------------------------
+  const manejarOrden = (campo: string) => {
+    let direccion: 'asc' | 'desc' = 'asc';
+    if (configuracionOrden && configuracionOrden.campo === campo && configuracionOrden.direccion === 'asc') {
+      direccion = 'desc';
+    }
+    setConfiguracionOrden({ campo, direccion });
+  };
+
+  const resetearFiltros = () => {
+    setTerminoBusqueda('');
+    setConfiguracionOrden(null);
+  };
+
+  const usuariosProcesados = useMemo(() => {
+    let datos = [...listaUsuarios];
+
+    // 1. Filtrado por Búsqueda (Nombre, Username, Cédula o Rol)
+    if (terminoBusqueda) {
+      const busquedaLower = terminoBusqueda.toLowerCase();
+      datos = datos.filter(user => {
+        const nombreFull = `${user.nombre ?? (user as any).Nombre ?? ''} ${user.apellido ?? (user as any).Apellido ?? ''}`.toLowerCase();
+        const username = String(user.username ?? (user as any).Username ?? '').toLowerCase();
+        const cedula = String(user.cedula ?? (user as any).Cedula ?? '').toLowerCase();
+        
+        const rolEncontrado = rolesDisponibles.find(r => r.id === (user as any).rolId);
+        const rolNombre = String(rolEncontrado?.rolName ?? (user as any).rolName ?? (user as any).rolNombre ?? '').toLowerCase();
+
+        return nombreFull.includes(busquedaLower) || 
+               username.includes(busquedaLower) || 
+               cedula.includes(busquedaLower) ||
+               rolNombre.includes(busquedaLower);
+      });
+    }
+
+    // 2. Ordenamiento de Columnas
+    if (configuracionOrden) {
+      datos.sort((a, b) => {
+        const { campo, direccion } = configuracionOrden;
+        
+        let valorA = '';
+        let valorB = '';
+
+        if (campo === 'nombre') {
+           valorA = `${a.nombre ?? (a as any).Nombre ?? ''} ${a.apellido ?? (a as any).Apellido ?? ''}`.toLowerCase();
+           valorB = `${b.nombre ?? (b as any).Nombre ?? ''} ${b.apellido ?? (b as any).Apellido ?? ''}`.toLowerCase();
+        } else if (campo === 'rolNombre') {
+           const rolA = rolesDisponibles.find(r => r.id === (a as any).rolId);
+           valorA = String(rolA?.rolName ?? (a as any).rolName ?? (a as any).rolNombre ?? '').toLowerCase();
+           
+           const rolB = rolesDisponibles.find(r => r.id === (b as any).rolId);
+           valorB = String(rolB?.rolName ?? (b as any).rolName ?? (b as any).rolNombre ?? '').toLowerCase();
+        } else {
+           valorA = String((a as any)[campo] ?? (a as any)[campo.charAt(0).toUpperCase() + campo.slice(1)] ?? '').toLowerCase();
+           valorB = String((b as any)[campo] ?? (b as any)[campo.charAt(0).toUpperCase() + campo.slice(1)] ?? '').toLowerCase();
+        }
+
+        if (valorA < valorB) return direccion === 'asc' ? -1 : 1;
+        if (valorA > valorB) return direccion === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return datos;
+  }, [listaUsuarios, terminoBusqueda, configuracionOrden, rolesDisponibles]);
+
+  const indicadorOrden = (campo: string) => {
+    if (configuracionOrden?.campo === campo) {
+      return configuracionOrden.direccion === 'asc' ? ' ↑' : ' ↓';
+    }
+    return null;
+  };
+
+  // PANTALLA DE PROTECCIÓN
   if (!puedeGestionarUsuarios) {
     return (
       <div className="flex flex-col items-center justify-center p-12 bg-white border border-slate-200 rounded-xl shadow-sm mx-auto max-w-2xl mt-12 text-center">
@@ -136,7 +214,8 @@ export function TablaUsuarios() {
     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm mx-auto max-w-5xl">
       <Toaster position="bottom-right" reverseOrder={false} />
       
-      <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+      {/* CABECERA PRINCIPAL */}
+      <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-white">
         <div>
           <h2 className="text-lg font-semibold text-emerald-800">Control de Usuarios</h2>
           <p className="text-sm text-slate-500">Personal con acceso al sistema BioLab</p>
@@ -152,25 +231,55 @@ export function TablaUsuarios() {
         </div>
       </div>
 
+      {/* BARRA DE HERRAMIENTAS (TOOLBAR) INCRUSTADA */}
+      <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row gap-4 justify-between items-center">
+        <div className="w-full md:w-96 relative">
+          <input 
+            type="text" 
+            placeholder="Buscar por Nombre, Usuario, Cédula o Rol..."
+            value={terminoBusqueda}
+            onChange={(e) => setTerminoBusqueda(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-shadow"
+          />
+          <span className="absolute left-3 top-2 text-slate-400">🔍</span>
+        </div>
+        
+        {(terminoBusqueda || configuracionOrden) && (
+          <button 
+            onClick={resetearFiltros}
+            className="px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 hover:text-rose-700 rounded-lg transition-colors font-medium whitespace-nowrap"
+          >
+            ✕ Limpiar Filtros
+          </button>
+        )}
+      </div>
+
+      {/* TABLA */}
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-white text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
-              <th className="p-4">Nombre y Apellido</th>
-              <th className="p-4">Usuario (Login)</th>
-              <th className="p-4">Rol Asignado</th>
+            <tr className="bg-white text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-200 select-none">
+              <th onClick={() => manejarOrden('nombre')} className="p-4 cursor-pointer hover:bg-slate-50 transition-colors">
+                Nombre y Apellido {indicadorOrden('nombre')}
+              </th>
+              <th onClick={() => manejarOrden('username')} className="p-4 cursor-pointer hover:bg-slate-50 transition-colors">
+                Usuario (Login) {indicadorOrden('username')}
+              </th>
+              <th onClick={() => manejarOrden('rolNombre')} className="p-4 cursor-pointer hover:bg-slate-50 transition-colors">
+                Rol Asignado {indicadorOrden('rolNombre')}
+              </th>
               <th className="p-4 text-center">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-            {listaUsuarios.length === 0 ? (
+            {usuariosProcesados.length === 0 ? (
               <tr>
                 <td colSpan={4} className="p-12 text-center text-slate-400">
-                  <p>No hay personal registrado en el sistema actualmente.</p>
+                  <p>No se encontraron usuarios con los filtros actuales.</p>
                 </td>
               </tr>
             ) : (
-              listaUsuarios.map((user) => {
+              usuariosProcesados.map((user) => {
                 const id = user.id;
                 const nombreCompleto = `${user.nombre} ${user.apellido}`;
                 const username = user.username;
