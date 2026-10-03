@@ -1,7 +1,7 @@
 import React from 'react';
 import { MainLayout } from '../layout/MainLayout';
 import { Title } from '../layout/Title';
-import { PanelImpresiones } from './PanelImpresiones';
+import { PanelImpresiones } from '../shared/PanelImpresiones';
 
 
 export function ImpresionesPage() {
