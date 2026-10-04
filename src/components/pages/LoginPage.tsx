@@ -56,12 +56,12 @@ export function LoginPage() {
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
         
-        <div className="bg-emerald-600 p-8 text-center">
+        <div className="bg-sky-600 p-8 text-center">
           <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-md">
             <span className="text-3xl">🔬</span>
           </div>
           <h1 className="text-2xl font-bold text-white tracking-widest">RIV_CARR</h1>
-          <p className="text-emerald-100 text-sm mt-1">Sistema de Gestión de Laboratorio</p>
+          <p className="text-sky-100 text-sm mt-1">Sistema de Gestión de Laboratorio</p>
         </div>
 
         <div className="p-8">
@@ -101,7 +101,7 @@ export function LoginPage() {
             <button 
               type="submit" 
               disabled={cargando}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-white font-bold py-3 rounded-lg shadow-md transition-colors mt-2"
+              className="w-full bg-sky-600 hover:bg-sky-700 disabled:bg-slate-400 text-white font-bold py-3 rounded-lg shadow-md transition-colors mt-2"
             >
               {cargando ? 'Verificando...' : 'Ingresar al Sistema'}
             </button>

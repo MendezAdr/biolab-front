@@ -125,7 +125,6 @@ export function TablaUsuarios() {
   const usuariosProcesados = useMemo(() => {
     let datos = [...listaUsuarios];
 
-    // 1. Filtrado por Búsqueda (Nombre, Username, Cédula o Rol)
     if (terminoBusqueda) {
       const busquedaLower = terminoBusqueda.toLowerCase();
       datos = datos.filter(user => {
@@ -143,7 +142,6 @@ export function TablaUsuarios() {
       });
     }
 
-    // 2. Ordenamiento de Columnas
     if (configuracionOrden) {
       datos.sort((a, b) => {
         const { campo, direccion } = configuracionOrden;
@@ -181,12 +179,11 @@ export function TablaUsuarios() {
     return null;
   };
 
-  // PANTALLA DE PROTECCIÓN
   if (!puedeGestionarUsuarios) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 bg-white border border-slate-200 rounded-xl shadow-sm mx-auto max-w-2xl mt-12 text-center">
+      <div className="flex flex-col items-center justify-center p-12 bg-white border border-sky-100 rounded-xl shadow-sm mx-auto max-w-2xl mt-12 text-center">
         <span className="text-6xl mb-4 opacity-80">🔒</span>
-        <h2 className="text-xl font-bold text-slate-800 mb-2">Acceso Restringido</h2>
+        <h2 className="text-xl font-bold text-sky-900 mb-2">Acceso Restringido</h2>
         <p className="text-slate-500">
           Tu nivel de acceso actual no te permite visualizar ni administrar la información del personal del laboratorio.
         </p>
@@ -195,15 +192,15 @@ export function TablaUsuarios() {
   }
 
   if (cargando) {
-    return <div className="flex justify-center items-center h-64 text-slate-500">Cargando base de datos del personal...</div>;
+    return <div className="flex justify-center items-center h-64 text-sky-600 font-medium animate-pulse">Cargando base de datos del personal...</div>;
   }
 
   if (error) {
     return (
       <div className="p-6 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-center mx-auto max-w-2xl mt-8">
-        <p className="font-semibold text-lg mb-2">Error de Conexión</p>
+        <p className="font-bold text-lg mb-2">Error de Conexión</p>
         <p className="text-sm mb-4">{error}</p>
-        <button onClick={cargarDatosIniciales} className="px-4 py-2 bg-rose-100 hover:bg-rose-200 rounded-lg text-sm transition-colors">
+        <button onClick={cargarDatosIniciales} className="px-5 py-2.5 bg-rose-100 hover:bg-rose-200 rounded-xl font-bold text-sm transition-colors">
           Reintentar conexión
         </button>
       </div>
@@ -211,19 +208,19 @@ export function TablaUsuarios() {
   }
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm mx-auto max-w-5xl">
+    <div className="bg-white border border-sky-100 rounded-xl overflow-hidden shadow-sm mx-auto max-w-5xl mt-6">
       <Toaster position="bottom-right" reverseOrder={false} />
       
       {/* CABECERA PRINCIPAL */}
-      <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-white">
+      <div className="p-5 border-b border-sky-50 flex justify-between items-center bg-white">
         <div>
-          <h2 className="text-lg font-semibold text-emerald-800">Control de Usuarios</h2>
+          <h2 className="text-xl font-bold text-sky-900">Control de Usuarios</h2>
           <p className="text-sm text-slate-500">Personal con acceso al sistema BioLab</p>
         </div>
         
         <div className="inline-block">
           <button 
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm bg-emerald-600 hover:bg-emerald-700 text-white"
+            className="px-5 py-2.5 rounded-xl text-sm font-bold shadow-md transition-all bg-emerald-500 hover:bg-emerald-400 text-white hover:-translate-y-0.5"
             onClick={abrirModalCrear}
           >
             + Registrar Personal
@@ -232,22 +229,22 @@ export function TablaUsuarios() {
       </div>
 
       {/* BARRA DE HERRAMIENTAS (TOOLBAR) INCRUSTADA */}
-      <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row gap-4 justify-between items-center">
+      <div className="p-4 border-b border-sky-50 bg-sky-50/30 flex flex-col md:flex-row gap-4 justify-between items-center">
         <div className="w-full md:w-96 relative">
           <input 
             type="text" 
             placeholder="Buscar por Nombre, Usuario, Cédula o Rol..."
             value={terminoBusqueda}
             onChange={(e) => setTerminoBusqueda(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-shadow"
+            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-shadow"
           />
-          <span className="absolute left-3 top-2 text-slate-400">🔍</span>
+          <span className="absolute left-3 top-2 text-slate-400 text-lg">🔍</span>
         </div>
         
         {(terminoBusqueda || configuracionOrden) && (
           <button 
             onClick={resetearFiltros}
-            className="px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 hover:text-rose-700 rounded-lg transition-colors font-medium whitespace-nowrap"
+            className="px-4 py-2 text-sm text-rose-500 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-colors font-bold whitespace-nowrap"
           >
             ✕ Limpiar Filtros
           </button>
@@ -258,14 +255,14 @@ export function TablaUsuarios() {
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-white text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-200 select-none">
-              <th onClick={() => manejarOrden('nombre')} className="p-4 cursor-pointer hover:bg-slate-50 transition-colors">
+            <tr className="bg-white text-sky-800 text-xs font-bold uppercase tracking-wider border-b border-sky-100 select-none">
+              <th onClick={() => manejarOrden('nombre')} className="p-4 cursor-pointer hover:bg-sky-50 transition-colors">
                 Nombre y Apellido {indicadorOrden('nombre')}
               </th>
-              <th onClick={() => manejarOrden('username')} className="p-4 cursor-pointer hover:bg-slate-50 transition-colors">
+              <th onClick={() => manejarOrden('username')} className="p-4 cursor-pointer hover:bg-sky-50 transition-colors">
                 Usuario (Login) {indicadorOrden('username')}
               </th>
-              <th onClick={() => manejarOrden('rolNombre')} className="p-4 cursor-pointer hover:bg-slate-50 transition-colors">
+              <th onClick={() => manejarOrden('rolNombre')} className="p-4 cursor-pointer hover:bg-sky-50 transition-colors">
                 Rol Asignado {indicadorOrden('rolNombre')}
               </th>
               <th className="p-4 text-center">Acciones</th>
@@ -274,7 +271,7 @@ export function TablaUsuarios() {
           <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
             {usuariosProcesados.length === 0 ? (
               <tr>
-                <td colSpan={4} className="p-12 text-center text-slate-400">
+                <td colSpan={4} className="p-12 text-center text-slate-500 bg-slate-50/50 italic">
                   <p>No se encontraron usuarios con los filtros actuales.</p>
                 </td>
               </tr>
@@ -289,21 +286,21 @@ export function TablaUsuarios() {
                 const rolNombre = rolEncontrado?.rolName ?? (user as any).rolName ?? (user as any).rolNombre ?? 'Sin Rol';
                 
                 return (
-                  <tr key={id} className={`transition-colors ${!isActive ? 'bg-rose-50/40 opacity-75' : 'hover:bg-slate-50'}`}>
+                  <tr key={id} className={`transition-colors ${!isActive ? 'bg-rose-50/40 opacity-75' : 'hover:bg-sky-50/50'}`}>
                     <td className="p-4">
-                      <div className="font-semibold text-slate-800">
+                      <div className="font-bold text-sky-900">
                         {nombreCompleto}
                         {!isActive && (
-                          <span className="ml-2 text-[10px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                            Desactivado
+                          <span className="ml-2 text-[10px] bg-rose-100 border border-rose-200 text-rose-700 px-2 py-0.5 rounded-md font-bold uppercase tracking-wider">
+                            Suspendido
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-slate-500 mt-0.5">{user.cedula}</div>
+                      <div className="text-xs text-slate-500 font-medium mt-0.5">{user.cedula}</div>
                     </td>
-                    <td className="p-4 font-medium text-emerald-700">@{username}</td>
+                    <td className="p-4 font-bold text-sky-700">@{username}</td>
                     <td className="p-4">
-                      <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded text-xs font-medium border border-emerald-100">
+                      <span className="bg-sky-50 text-sky-700 px-2.5 py-1 rounded text-xs font-bold border border-sky-100 uppercase tracking-wider">
                         {rolNombre}
                       </span>
                     </td>
@@ -312,7 +309,7 @@ export function TablaUsuarios() {
                       <div className="inline-block">
                         <button 
                           onClick={() => abrirModalEditar(user)}
-                          className="font-medium text-xs px-3 py-1.5 rounded transition-colors bg-sky-50 text-sky-600 hover:text-sky-800"
+                          className="font-bold text-xs px-3 py-1.5 rounded-lg transition-colors bg-sky-50 text-sky-600 border border-sky-100 hover:bg-sky-100 hover:text-sky-800"
                         >
                           Editar
                         </button>
@@ -322,12 +319,12 @@ export function TablaUsuarios() {
                         <button 
                           onClick={() => alternarEstadoUsuario(id, username, isActive)}
                           disabled={currentUserId === id} 
-                          className={`font-medium text-xs px-3 py-1.5 rounded transition-colors ${
+                          className={`font-bold text-xs px-3 py-1.5 rounded-lg transition-colors border ${
                             currentUserId === id
-                              ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                              ? 'bg-slate-100 border-transparent text-slate-400 cursor-not-allowed' 
                               : isActive 
-                                ? 'bg-rose-50 text-rose-600 hover:text-rose-800' 
-                                : 'bg-emerald-50 text-emerald-600 hover:text-emerald-800'
+                                ? 'bg-rose-50 border-rose-100 text-rose-600 hover:text-rose-800 hover:bg-rose-100' 
+                                : 'bg-emerald-50 border-emerald-100 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-100'
                           }`}
                         >
                           {isActive ? 'Suspender' : 'Reactivar'}

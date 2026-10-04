@@ -113,9 +113,9 @@ export function PanelPresupuestos() {
 
   if (!puedeGestionarPresupuestos) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 bg-white border border-slate-200 rounded-xl shadow-sm mx-auto max-w-2xl mt-12 text-center">
+      <div className="flex flex-col items-center justify-center p-12 bg-white border border-sky-100 rounded-xl shadow-sm mx-auto max-w-2xl mt-12 text-center">
         <span className="text-6xl mb-4 opacity-80">🔒</span>
-        <h2 className="text-xl font-bold text-slate-800 mb-2">Acceso Restringido</h2>
+        <h2 className="text-xl font-bold text-sky-900 mb-2">Acceso Restringido</h2>
         <p className="text-slate-500">
           Tu nivel de acceso actual no te permite generar ni administrar presupuestos en el sistema.
         </p>
@@ -123,46 +123,68 @@ export function PanelPresupuestos() {
     );
   }
 
-  if (cargando) return <div className="p-10 text-center animate-pulse text-slate-500">Cargando catálogo de exámenes...</div>;
+  if (cargando) return <div className="p-10 text-center animate-pulse text-sky-600 font-medium">Cargando catálogo de exámenes...</div>;
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6 p-4">
       <Toaster position="bottom-right" reverseOrder={false} />
       
+      {/* CABECERA PRINCIPAL (Añadida para coherencia visual) */}
+      <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-sky-100 shadow-sm">
+        <div>
+          <h2 className="text-xl font-bold text-sky-900">Generador de Presupuestos</h2>
+          <p className="text-sm text-slate-500">Cotización rápida de exámenes sin afectar la caja</p>
+        </div>
+        <div className="bg-sky-50 border border-sky-200 text-sky-900 px-4 py-2 rounded-lg text-sm font-bold flex flex-col items-end shadow-sm">
+          <span className="text-sky-600 text-xs uppercase tracking-wider">Tasa BCV del Día</span>
+          <span className="text-lg">Bs. {tasaBcv.toFixed(2)}</span>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* COLUMNA IZQUIERDA: BÚSQUEDA Y CATÁLOGO */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <h3 className="font-bold text-slate-700 mb-4 border-b pb-2">Selección de Exámenes</h3>
+          <div className="bg-white p-5 rounded-xl border border-sky-100 shadow-sm">
+            <h3 className="font-bold text-sky-900 mb-4 border-b border-sky-50 pb-2">Selección de Exámenes</h3>
             
-            <div className="mb-4">
+            <div className="relative mb-4">
               <input 
                 type="text" 
-                placeholder="🔍 Buscar examen por nombre..."
+                placeholder="Buscar examen por nombre..."
                 value={busquedaExamen}
                 onChange={(e) => setBusquedaExamen(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm text-slate-700 bg-slate-50 focus:outline-none focus:border-emerald-500"
+                className="w-full border border-slate-300 rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-700 bg-slate-50 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-shadow"
               />
+              <span className="absolute left-3 top-2.5 text-slate-400 text-lg">🔍</span>
             </div>
 
-            <div className="max-h-[400px] overflow-y-auto border border-slate-100 rounded-lg">
+            <div className="max-h-[400px] overflow-y-auto border border-sky-50 rounded-lg custom-scrollbar">
               {examenesFiltrados.map(examen => {
                 const exId = examen.id ?? (examen as any).Id;
                 const nombreExamen = examen.nombreExamen ?? (examen as any).NombreExamen;
                 const descripcion = examen.descripcion ?? (examen as any).Descripcion;
                 const costo = examen.costoEnDivisa ?? (examen as any).CostoEnDivisa;
+                const estaEnCarrito = carrito.some(e => (e.id ?? (e as any).Id) === exId);
 
                 return (
-                  <div key={exId} className="flex justify-between items-center p-3 hover:bg-slate-50 border-b border-slate-50">
+                  <div key={exId} className="flex justify-between items-center p-3 hover:bg-sky-50 border-b border-slate-50 transition-colors">
                     <div>
                       <p className="text-sm font-medium text-slate-700">{nombreExamen}</p>
                       <p className="text-xs text-slate-500 max-w-md truncate">{descripcion || 'Sin descripción'}</p>
                     </div>
                     <div className="flex items-center gap-4">
                       <span className="font-bold text-emerald-600">${costo}</span>
-                      <button onClick={() => agregarAlCarrito(examen)} className="text-white bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded text-xs font-bold transition-colors">
-                        Añadir
+                      <button 
+                        onClick={() => agregarAlCarrito(examen)} 
+                        disabled={estaEnCarrito}
+                        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm ${
+                          estaEnCarrito 
+                            ? 'bg-sky-100 text-sky-500 cursor-not-allowed border border-sky-200' 
+                            : 'text-white bg-sky-500 hover:bg-sky-600 hover:shadow-md'
+                        }`}
+                      >
+                        {estaEnCarrito ? 'Añadido ✔️' : 'Añadir'}
                       </button>
                     </div>
                   </div>
@@ -174,8 +196,10 @@ export function PanelPresupuestos() {
 
         {/* COLUMNA DERECHA: DATOS DEL CLIENTE, CARRITO Y TOTALES */}
         <div className="lg:col-span-1">
-          <div className="bg-slate-800 text-white p-5 rounded-xl shadow-lg sticky top-6">
-            <h3 className="font-bold text-lg mb-4 border-b border-slate-600 pb-2">Datos del Cliente (Opcional)</h3>
+          <div className="bg-sky-900 text-white p-6 rounded-xl shadow-xl border border-sky-800 sticky top-6">
+            <h3 className="font-bold text-lg mb-4 border-b border-sky-700 pb-3 flex items-center">
+              <span className="mr-2">👤</span> Datos del Cliente
+            </h3>
             
             <div className="space-y-3 mb-6">
               <div>
@@ -183,32 +207,37 @@ export function PanelPresupuestos() {
                   type="text" 
                   value={nombreCliente}
                   onChange={(e) => setNombreCliente(e.target.value)}
-                  placeholder="Nombre Completo"
-                  className="w-full border border-slate-600 rounded-lg px-3 py-2 text-sm bg-slate-700 text-white focus:outline-none focus:border-emerald-500"
+                  placeholder="Nombre Completo (Opcional)"
+                  className="w-full border border-sky-700 rounded-lg px-3 py-2.5 text-sm bg-sky-950 text-sky-100 placeholder-sky-600 focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400 transition-shadow"
                 />
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-3">
                 <input 
                   type="text" 
                   value={cedulaCliente}
                   onChange={(e) => setCedulaCliente(e.target.value)}
-                  placeholder="Cédula (Ej. V-12345)"
-                  className="w-1/2 border border-slate-600 rounded-lg px-3 py-2 text-sm bg-slate-700 text-white focus:outline-none focus:border-emerald-500"
+                  placeholder="Cédula (Opcional)"
+                  className="w-1/2 border border-sky-700 rounded-lg px-3 py-2.5 text-sm bg-sky-950 text-sky-100 placeholder-sky-600 focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400 transition-shadow"
                 />
                 <input 
                   type="text" 
                   value={telefonoCliente}
                   onChange={(e) => setTelefonoCliente(e.target.value)}
-                  placeholder="Teléfono"
-                  className="w-1/2 border border-slate-600 rounded-lg px-3 py-2 text-sm bg-slate-700 text-white focus:outline-none focus:border-emerald-500"
+                  placeholder="Teléfono (Opcional)"
+                  className="w-1/2 border border-sky-700 rounded-lg px-3 py-2.5 text-sm bg-sky-950 text-sky-100 placeholder-sky-600 focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400 transition-shadow"
                 />
               </div>
             </div>
 
-            <h3 className="font-bold text-lg mb-4 border-b border-slate-600 pb-2">Detalle del Presupuesto</h3>
-            <div className="min-h-[150px] max-h-[300px] overflow-y-auto mb-4 space-y-2 pr-2">
+            <h3 className="font-bold text-lg mb-4 border-b border-sky-700 pb-3 flex items-center">
+              <span className="mr-2">📝</span> Detalle del Presupuesto
+            </h3>
+            
+            <div className="min-h-[150px] max-h-[250px] overflow-y-auto mb-5 space-y-2.5 pr-2 custom-scrollbar">
               {carrito.length === 0 ? (
-                <p className="text-sm text-slate-400 text-center italic mt-10">Agregue exámenes al presupuesto.</p>
+                <div className="h-32 flex items-center justify-center">
+                  <p className="text-sm text-sky-300/70 text-center italic">Agregue exámenes al presupuesto.</p>
+                </div>
               ) : (
                 carrito.map(ex => {
                    const exId = ex.id ?? (ex as any).Id;
@@ -216,11 +245,11 @@ export function PanelPresupuestos() {
                    const costo = ex.costoEnDivisa ?? (ex as any).CostoEnDivisa;
 
                    return (
-                    <div key={exId} className="flex justify-between text-sm bg-slate-700 p-2 rounded">
-                      <span className="truncate pr-2">{nombreExamen}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-emerald-400">${costo}</span>
-                        <button onClick={() => quitarDelCarrito(exId)} className="text-rose-400 hover:text-rose-300 font-bold">✕</button>
+                    <div key={exId} className="flex justify-between items-center text-sm bg-sky-800/80 p-3 rounded-lg border border-sky-700/50">
+                      <span className="truncate pr-2 font-medium">{nombreExamen}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="font-bold text-emerald-400">${costo}</span>
+                        <button onClick={() => quitarDelCarrito(exId)} className="text-sky-300 hover:text-rose-400 transition-colors font-bold text-xs bg-sky-900 p-1 rounded">✕</button>
                       </div>
                     </div>
                   );
@@ -228,30 +257,30 @@ export function PanelPresupuestos() {
               )}
             </div>
 
-            <div className="border-t border-slate-600 pt-4 space-y-2">
-              <div className="flex justify-between text-sm text-slate-300">
+            <div className="border-t border-sky-700 pt-4 space-y-3">
+              <div className="flex justify-between text-sm text-sky-100 font-medium">
                 <span>Subtotal USD:</span>
-                <span>${totalDivisa.toFixed(2)}</span>
+                <span className="font-bold">${totalDivisa.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between font-bold text-xl text-emerald-400 pt-2 border-t border-slate-600">
+              <div className="flex justify-between font-black text-xl text-emerald-400 pt-3 border-t border-sky-800/80 bg-sky-950 p-3 rounded-lg shadow-inner">
                 <span>TOTAL APROX:</span>
                 <span>${totalDivisa.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-sm text-sky-300">
+              <div className="flex justify-between text-sm text-sky-300 font-medium px-1">
                 <span>Equivalente VES (Ref):</span>
                 <span>Bs. {totalBolivares.toFixed(2)}</span>
               </div>
             </div>
 
-            <div className="mt-6 space-y-2">
+            <div className="mt-6 space-y-3">
               
               <div className="w-full" title={!puedeCrearOrden ? "Tu rol no tiene permiso para crear nuevas órdenes oficiales." : ""}>
                 <button 
                   onClick={convertirAOrden}
                   disabled={carrito.length === 0 || !puedeCrearOrden}
-                  className={`w-full font-bold py-3 rounded-lg transition-colors flex justify-center items-center gap-2 ${(!puedeCrearOrden || carrito.length === 0) ? 'bg-slate-600 text-slate-400 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-400 text-white'}`}
+                  className={`w-full font-bold py-3.5 rounded-xl transition-all shadow-lg flex justify-center items-center gap-2 text-sm uppercase tracking-wide text-white ${(!puedeCrearOrden || carrito.length === 0) ? 'bg-slate-700/50 border border-slate-600 cursor-not-allowed text-slate-400 shadow-none' : 'bg-emerald-500 hover:bg-emerald-400 border border-emerald-400 hover:-translate-y-0.5'}`}
                 >
-                  <span>📝</span> Convertir a Factura
+                  <span>📋</span> Convertir a Factura
                 </button>
               </div>
 
@@ -259,17 +288,18 @@ export function PanelPresupuestos() {
                 <button 
                   onClick={enviarAImpresion}
                   disabled={carrito.length === 0 || !puedeGestionarPresupuestos}
-                  className={`w-full font-bold py-3 rounded-lg transition-colors flex justify-center items-center gap-2 ${(!puedeGestionarPresupuestos || carrito.length === 0) ? 'bg-slate-600 text-slate-400 cursor-not-allowed' : 'bg-sky-600 hover:bg-sky-500 text-white'}`}
+                  className={`w-full font-bold py-3.5 rounded-xl transition-all shadow-lg flex justify-center items-center gap-2 text-sm uppercase tracking-wide text-white ${(!puedeGestionarPresupuestos || carrito.length === 0) ? 'bg-slate-700/50 border border-slate-600 cursor-not-allowed text-slate-400 shadow-none' : 'bg-sky-500 hover:bg-sky-400 border border-sky-400 hover:-translate-y-0.5'}`}
                 >
-                  <span>🖨️</span> Generar PDF / Imprimir
+                  <span>🖨️</span> Generar PDF
                 </button>
               </div>
 
               <button 
                 onClick={limpiarPresupuesto}
-                className="w-full bg-transparent border border-slate-600 text-slate-300 hover:bg-slate-700 font-medium py-2 rounded-lg transition-colors"
+                disabled={carrito.length === 0 && !nombreCliente && !cedulaCliente && !telefonoCliente}
+                className="w-full bg-transparent border border-sky-700 text-sky-300 hover:bg-sky-800 hover:text-white font-medium py-2.5 rounded-xl transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Limpiar Todo
+                Limpiar Formulario
               </button>
             </div>
           </div>

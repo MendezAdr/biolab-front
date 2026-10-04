@@ -58,9 +58,6 @@ export function HistoricoFacturas() {
     navigate('/nueva-orden');
   };
 
-  // ------------------------------------------------------------------
-  // LÓGICA DE PROCESAMIENTO (BÚSQUEDA Y ORDENAMIENTO)
-  // ------------------------------------------------------------------
   const manejarOrden = (campo: string) => {
     let direccion: 'asc' | 'desc' = 'asc';
     if (configuracionOrden && configuracionOrden.campo === campo && configuracionOrden.direccion === 'asc') {
@@ -120,9 +117,9 @@ export function HistoricoFacturas() {
 
   if (!puedeVerHistorial) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 bg-white border border-slate-200 rounded-xl shadow-sm mx-auto max-w-2xl mt-12 text-center">
+      <div className="flex flex-col items-center justify-center p-12 bg-white border border-sky-100 rounded-xl shadow-sm mx-auto max-w-2xl mt-12 text-center">
         <span className="text-6xl mb-4 opacity-80">🔒</span>
-        <h2 className="text-xl font-bold text-slate-800 mb-2">Acceso Restringido</h2>
+        <h2 className="text-xl font-bold text-sky-900 mb-2">Acceso Restringido</h2>
         <p className="text-slate-500">
           Tu nivel de acceso actual no te permite consultar el historial de facturación ni ver reportes antiguos.
         </p>
@@ -131,14 +128,14 @@ export function HistoricoFacturas() {
   }
 
   if (cargando) {
-    return <div className="flex justify-center items-center h-64 text-slate-500">Cargando histórico...</div>;
+    return <div className="flex justify-center items-center h-64 text-sky-600 font-medium animate-pulse">Cargando histórico...</div>;
   }
 
   if (error) {
     return (
       <div className="p-6 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-center max-w-2xl mx-auto">
         <p className="font-semibold">{error}</p>
-        <button onClick={cargarHistorial} className="mt-4 px-4 py-2 bg-rose-100 hover:bg-rose-200 text-rose-800 rounded-lg text-sm">
+        <button onClick={cargarHistorial} className="mt-4 px-5 py-2 bg-rose-100 hover:bg-rose-200 text-rose-800 rounded-lg text-sm font-bold transition-colors">
           Reintentar conexión
         </button>
       </div>
@@ -149,9 +146,9 @@ export function HistoricoFacturas() {
     <div className="space-y-6 p-2">
       
       {/* CABECERA PRINCIPAL */}
-      <div className="flex justify-between items-center bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+      <div className="flex justify-between items-center bg-white p-5 rounded-xl border border-sky-100 shadow-sm">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">Histórico de Facturas</h2>
+          <h2 className="text-xl font-bold text-sky-900">Histórico de Facturas</h2>
           <p className="text-sm text-slate-500">Consulta y reimpresión de órdenes registradas</p>
         </div>
         
@@ -159,7 +156,7 @@ export function HistoricoFacturas() {
           <button 
             onClick={navegarANuevaFactura}
             disabled={!puedeCrearOrdenes}
-            className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-sm ${!puedeCrearOrdenes ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer'}`}
+            className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-colors shadow-sm ${!puedeCrearOrdenes ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-400 text-white cursor-pointer hover:-translate-y-0.5'}`}
           >
             + Crear Nueva Factura
           </button>
@@ -167,25 +164,25 @@ export function HistoricoFacturas() {
       </div>
 
       {/* CONTENEDOR INTEGRADO: BARRA DE BÚSQUEDA + TABLA */}
-      <div className="bg-white border border-slate-200 text-slate-700 rounded-xl overflow-hidden shadow-sm">
+      <div className="bg-white border border-sky-100 text-slate-700 rounded-xl overflow-hidden shadow-sm">
         
         {/* BARRA DE HERRAMIENTAS (TOOLBAR) INCRUSTADA */}
-        <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row gap-4 justify-between items-center">
+        <div className="p-4 border-b border-sky-50 bg-sky-50/30 flex flex-col md:flex-row gap-4 justify-between items-center">
           <div className="w-full md:w-96 relative">
             <input 
               type="text" 
               placeholder="Buscar por N° Factura, ID o Nombre..."
               value={terminoBusqueda}
               onChange={(e) => setTerminoBusqueda(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-shadow"
+              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-shadow"
             />
-            <span className="absolute left-3 top-2 text-slate-400">🔍</span>
+            <span className="absolute left-3 top-2 text-slate-400 text-lg">🔍</span>
           </div>
           
           {(terminoBusqueda || configuracionOrden) && (
             <button 
               onClick={resetearFiltros}
-              className="px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 hover:text-rose-700 rounded-lg transition-colors font-medium whitespace-nowrap"
+              className="px-4 py-2 text-sm text-rose-500 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-colors font-bold whitespace-nowrap"
             >
               ✕ Limpiar Filtros
             </button>
@@ -196,20 +193,20 @@ export function HistoricoFacturas() {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-white text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-200 select-none">
-                <th onClick={() => manejarOrden('numeroFactura')} className="p-4 cursor-pointer hover:bg-slate-50 transition-colors">
+              <tr className="bg-white text-sky-800 text-xs font-bold uppercase tracking-wider border-b border-sky-100 select-none">
+                <th onClick={() => manejarOrden('numeroFactura')} className="p-4 cursor-pointer hover:bg-sky-50 transition-colors">
                   N° Documento {indicadorOrden('numeroFactura')}
                 </th>
-                <th onClick={() => manejarOrden('fechaOrden')} className="p-4 cursor-pointer hover:bg-slate-50 transition-colors">
+                <th onClick={() => manejarOrden('fechaOrden')} className="p-4 cursor-pointer hover:bg-sky-50 transition-colors">
                   Fecha {indicadorOrden('fechaOrden')}
                 </th>
-                <th onClick={() => manejarOrden('pacienteId')} className="p-4 cursor-pointer hover:bg-slate-50 transition-colors">
+                <th onClick={() => manejarOrden('pacienteId')} className="p-4 cursor-pointer hover:bg-sky-50 transition-colors">
                   ID Paciente {indicadorOrden('pacienteId')}
                 </th>
-                <th onClick={() => manejarOrden('nombrePaciente')} className="p-4 cursor-pointer hover:bg-slate-50 transition-colors">
+                <th onClick={() => manejarOrden('nombrePaciente')} className="p-4 cursor-pointer hover:bg-sky-50 transition-colors">
                   Nombre Paciente {indicadorOrden('nombrePaciente')}
                 </th>
-                <th onClick={() => manejarOrden('totalDivisa')} className="p-4 text-right cursor-pointer hover:bg-slate-50 transition-colors">
+                <th onClick={() => manejarOrden('totalDivisa')} className="p-4 text-right cursor-pointer hover:bg-sky-50 transition-colors">
                   Total (USD) {indicadorOrden('totalDivisa')}
                 </th>
                 <th className="p-4 text-center">Acciones</th>
@@ -218,7 +215,7 @@ export function HistoricoFacturas() {
             <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
               {facturasProcesadas.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-12 text-center text-slate-400">
+                  <td colSpan={6} className="p-12 text-center text-slate-500 bg-slate-50/50 italic">
                     No se encontraron facturas con los filtros actuales.
                   </td>
                 </tr>
@@ -232,16 +229,16 @@ export function HistoricoFacturas() {
                   const total = factura.totalDivisa ?? (factura as any).TotalDivisa;
 
                   return (
-                    <tr key={fId} className="hover:bg-slate-50 transition-colors">
-                      <td className="p-4 font-mono font-semibold text-emerald-700">{numFactura}</td>
-                      <td className="p-4 text-slate-500">{formatearFechaSegura(fecha)}</td>
-                      <td className="p-4 text-slate-600">{paciente}</td>
-                      <td className="p-4 text-slate-600">{nombrePaciente || 'N/A'}</td>
-                      <td className="p-4 font-bold text-slate-800 text-right">${total}</td>
+                    <tr key={fId} className="hover:bg-sky-50/50 transition-colors">
+                      <td className="p-4 font-mono font-bold text-sky-700">{numFactura}</td>
+                      <td className="p-4 text-slate-500 font-medium">{formatearFechaSegura(fecha)}</td>
+                      <td className="p-4 text-slate-600 font-mono">#{paciente}</td>
+                      <td className="p-4 text-slate-700 font-medium">{nombrePaciente || 'N/A'}</td>
+                      <td className="p-4 font-black text-emerald-600 text-right">${total}</td>
                       <td className="p-4 text-center">
                         <button 
                           onClick={() => setFacturaSeleccionadaId(fId)}
-                          className="text-sky-600 hover:text-sky-800 font-medium text-xs bg-sky-50 hover:bg-sky-100 px-3 py-1.5 rounded transition-colors"
+                          className="text-sky-600 hover:text-white font-bold text-xs bg-sky-50 border border-sky-100 hover:bg-sky-500 px-4 py-2 rounded-lg transition-colors shadow-sm"
                         >
                           Ver Detalles
                         </button>

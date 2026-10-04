@@ -13,6 +13,7 @@ export interface Orden {
     tasaBcv: number;
     totalBs: number;
     totalDivisa: number;
+    estadoPago: number;
     detalles: Detalle[];
     pagos: Pago[];
     estado: number;

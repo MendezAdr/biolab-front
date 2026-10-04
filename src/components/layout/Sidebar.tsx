@@ -1,7 +1,5 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-
-// 1. IMPORTAMOS EL CONTEXTO GLOBAL
 import { useAuth } from '../../context/AuthContext';
 
 interface SidebarProps {
@@ -10,116 +8,111 @@ interface SidebarProps {
 }
 
 export function Sidebar({ abierta, setAbierta }: SidebarProps) {
-  // 2. EXTRAEMOS LA SESIÓN ACTUAL
   const { usuario } = useAuth();
   
-  // Variables seguras con fallbacks en caso de que la sesión aún esté cargando
   const nombreUsuario = usuario?.nombre || 'Invitado';
   const rolUsuario = usuario?.rolNombre || 'Sin acceso';
-  
-  // Extraemos las primeras dos letras del nombre para el círculo del avatar
   const iniciales = nombreUsuario.substring(0, 2).toUpperCase();
   
   const vincularClaseActiva = ({ isActive }: { isActive: boolean }) => {
-    const clasesBase = "w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors duration-200";
+    const clasesBase = "w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200";
     
     if (isActive) {
-      return `${clasesBase} bg-emerald-600/90 text-slate-200 font-semibold shadow-sm shadow-slate-300/20 hover:bg-emerald-700/90 hover:text-slate-100`;
+      // ESTADO ACTIVO: Verde Esmeralda
+      return `${clasesBase} bg-emerald-600 text-white shadow-md shadow-emerald-600/20 translate-x-1`;
     }
     
-    return `${clasesBase} text-slate-600 hover:bg-slate-100/90 hover:text-emerald-700`;
+    // ESTADO INACTIVO: Texto oscuro, hover con sutil fondo Azul Claro
+    return `${clasesBase} text-slate-100  hover:bg-sky-100 hover:text-sky-800`;
   };
 
   return (
     <aside 
-      className={`fixed left-0 top-0 h-screen w-64 bg-emerald-200 text-slate-800 border-r border-slate-200 p-4 flex flex-col justify-between z-40 transition-transform duration-300 ease-in-out ${
-        abierta ? 'translate-x-0' : '-translate-x-60'
+      className={`fixed left-0 top-0 h-screen w-64 bg-sky-600/80 text-slate-100 border-r border-sky-700 p-4 flex flex-col justify-between z-40 transition-transform duration-300 ease-in-out shadow-lg ${
+        abierta ? 'translate-x-0' : '-translate-x-64'
       }`}
     >
       <div>
-        {/* LOGO O NOMBRE DEL SISTEMA */}
-        <div className="mb-6 px-2 bg-white rounded-lg py-3 text-center relative shadow-sm border border-emerald-100">
-          <h1 className="text-xl font-bold text-emerald-700 tracking-wider">RIV_CARR</h1>
-          <span className="text-xs text-slate-600">Gestión de Laboratorio</span>
+        {/* LOGO E IDENTIFICACIÓN DEL SISTEMA */}
+        <div className="mb-6 bg-emerald-50/90 rounded-xl py-2 px-2 text-center shadow-sm  border-2 border-sky-700 flex flex-col items-center">
+          {/* Implementación de tu logo PNG */}
+          <img 
+            src="/img/logo-RIV_CARR.png" 
+            alt="Logo Laboratorio" 
+            className="w-16 h-16 object-contain mb-2 drop-shadow-sm"
+            onError={(e) => e.currentTarget.style.display = 'none'} // Lo oculta si la ruta falla
+          />
+          {/* Tipografía serif italic (profesional, inclinada, clásica) */}
+          <h1 className="text-2xl font-serif italic font-bold text-sky-900 tracking-wide">
+            RIV_CARR
+          </h1>
+          <span className="text-[10px] text-emerald-800 font-bold uppercase tracking-widest mt-1">
+            Laboratorio Clínico
+          </span>
         </div>
 
-        {/* BOTÓN DISCRETO DE VOLVER AL INICIO */}
-        <div className="mb-4 px-2">
-          <NavLink 
-            to="/" 
-            className={({ isActive }) => `flex items-center text-xs font-medium transition-colors ${isActive ? 'text-emerald-700 pointer-events-none' : 'text-slate-500 hover:text-emerald-700'}`}
-          >
-            <span className="mr-2">←</span> 
-            Volver al Panel Principal
-          </NavLink>
-        </div>
-
-        {/* MENÚ DE OPCIONES */}
-        <nav className="space-y-1.5 overflow-y-auto max-h-[60vh] pr-1">
+        {/* MENÚ DE OPCIONES (Scrollable) */}
+        <nav className="space-y-1.5 overflow-y-auto max-h-[55vh] pr-2 custom-scrollbar">
           <NavLink to="/nueva-orden" className={vincularClaseActiva}>
-            <span>📋</span>
-            <span>Órdenes</span>
+            <span className="text-lg">📋</span><span>Órdenes</span>
           </NavLink>
-
           <NavLink to="/historial-facturas" className={vincularClaseActiva}>
-            <span>💳</span>
-            <span>Facturas</span>
+            <span className="text-lg">💳</span><span>Facturas</span>
           </NavLink>
-
           <NavLink to="/presupuestos" className={vincularClaseActiva}>
-            <span>📊</span>
-            <span>Presupuestos</span>
+            <span className="text-lg">📊</span><span>Presupuestos</span>
           </NavLink>
-
           <NavLink to="/pagos" className={vincularClaseActiva}>
-            <span>💰</span>
-            <span>Pagos</span>
+            <span className="text-lg">💰</span><span>Pagos</span>
           </NavLink>
-
           <NavLink to="/examenes" className={vincularClaseActiva}>
-            <span>🔬</span>
-            <span>Exámenes</span>
+            <span className="text-lg">🔬</span><span>Exámenes</span>
           </NavLink>
-
           <NavLink to="/pacientes" className={vincularClaseActiva}>
-            <span>📋</span>
-            <span>Pacientes</span>
+            <span className="text-lg">📇</span><span>Pacientes</span>
           </NavLink>
-
           <NavLink to="/usuarios" className={vincularClaseActiva}>
-            <span>👥</span>
-            <span>Usuarios</span>
+            <span className="text-lg">👥</span><span>Usuarios</span>
           </NavLink>
-
           <NavLink to="/roles" className={vincularClaseActiva}>
-            <span>⚙️</span>
-            <span>Roles y permisos</span>
+            <span className="text-lg">⚙️</span><span>Roles y permisos</span>
           </NavLink>
-        
           <NavLink to="/impresiones" className={vincularClaseActiva}>
-            <span>🖨️</span>
-            <span>Impresiones</span>
+            <span className="text-lg">🖨️</span><span>Impresiones</span>
           </NavLink>
         </nav>
       </div>
 
-      {/* PERFIL DE USUARIO DINÁMICO */}
-      <div className="border-t border-slate-300 pt-4 flex items-center space-x-3">
-        <div 
-          className="w-10 h-10 rounded-full border border-sky-800 bg-sky-200/80 flex items-center justify-center font-bold text-sm text-emerald-800 hover:bg-white transition-colors cursor-pointer shadow-sm"
-          title="Opciones de cuenta"
+      {/* SECCIÓN INFERIOR: BOTÓN HOME Y PERFIL */}
+      <div className="pt-2 flex flex-col space-y-3 border-t border-slate-200 mt-2">
+        
+        {/* BOTÓN REUBICADO: Panel Principal (Azul Claro) */}
+        <NavLink 
+          to="/" 
+          className={({ isActive }) => `flex items-center justify-center space-x-2 w-full py-2.5 rounded-lg text-sm font-bold transition-all ${isActive ? 'bg-sky-500 text-white shadow-md pointer-events-none' : 'bg-emerald-50 text-sky-700 hover:bg-sky-200 border border-sky-100'}`}
         >
-          {iniciales}
+          <span className="text-lg">🏠</span> 
+          <span>Panel Principal</span>
+        </NavLink>
+
+        {/* PERFIL DE USUARIO */}
+        <div className="flex items-center space-x-3 bg-emerald-50 p-2 rounded-xl border border-slate-100 shadow-sm">
+          <div 
+            className="w-10 h-10 rounded-full border-2 border-sky-500 bg-emerald-100 flex items-center justify-center font-bold text-sm text-emerald-800 cursor-pointer"
+            title="Opciones de cuenta"
+          >
+            {iniciales}
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <p className="text-sm font-bold text-slate-800 truncate" title={nombreUsuario}>
+              {nombreUsuario}
+            </p>
+            <p className="text-[11px] text-sky-600 font-semibold uppercase tracking-wider truncate" title={rolUsuario}>
+              {rolUsuario}
+            </p>
+          </div>
         </div>
-        <div className="flex-1 overflow-hidden">
-          {/* Usamos truncate por si el nombre es muy largo y rompe el diseño */}
-          <p className="text-sm font-semibold text-slate-800 truncate" title={nombreUsuario}>
-            {nombreUsuario}
-          </p>
-          <p className="text-xs text-slate-600 font-medium truncate" title={rolUsuario}>
-            {rolUsuario}
-          </p>
-        </div>
+        
       </div>
     </aside>
   );

@@ -21,7 +21,6 @@ export function TablaPacientes() {
   const [modalAbierto, setModalAbierto] = useState(false);
   const [pacienteAEditar, setPacienteAEditar] = useState<Paciente | null>(null);
 
-  // ESTADOS PARA BÚSQUEDA Y ORDENAMIENTO
   const [terminoBusqueda, setTerminoBusqueda] = useState('');
   const [configuracionOrden, setConfiguracionOrden] = useState<{ campo: string, direccion: 'asc' | 'desc' } | null>(null);
 
@@ -95,9 +94,6 @@ export function TablaPacientes() {
     );
   };
 
-  // ------------------------------------------------------------------
-  // LÓGICA DE PROCESAMIENTO (BÚSQUEDA Y ORDENAMIENTO)
-  // ------------------------------------------------------------------
   const manejarOrden = (campo: string) => {
     let direccion: 'asc' | 'desc' = 'asc';
     if (configuracionOrden && configuracionOrden.campo === campo && configuracionOrden.direccion === 'asc') {
@@ -114,7 +110,6 @@ export function TablaPacientes() {
   const pacientesProcesados = useMemo(() => {
     let datos = [...listaPacientes];
 
-    // 1. Filtrado por Búsqueda (Nombre, Apellido o Cédula)
     if (terminoBusqueda) {
       const busquedaLower = terminoBusqueda.toLowerCase();
       datos = datos.filter(paciente => {
@@ -125,12 +120,10 @@ export function TablaPacientes() {
       });
     }
 
-    // 2. Ordenamiento de Columnas
     if (configuracionOrden) {
       datos.sort((a, b) => {
         const { campo, direccion } = configuracionOrden;
         
-        // Soporte de variables en camelCase y PascalCase
         let valorA = (a as any)[campo] ?? (a as any)[campo.charAt(0).toUpperCase() + campo.slice(1)];
         let valorB = (b as any)[campo] ?? (b as any)[campo.charAt(0).toUpperCase() + campo.slice(1)];
 
@@ -153,16 +146,16 @@ export function TablaPacientes() {
     return null;
   };
 
-  if (cargando) return <div className="flex justify-center items-center h-64 text-slate-500">Cargando base de datos...</div>;
+  if (cargando) return <div className="flex justify-center items-center h-64 text-sky-600 font-medium animate-pulse">Cargando base de datos...</div>;
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm mx-auto max-w-5xl">
+    <div className="bg-white border border-sky-100 rounded-xl overflow-hidden shadow-sm mx-auto max-w-5xl mt-6">
       <Toaster position="bottom-right" reverseOrder={false} />
       
       {/* CABECERA PRINCIPAL */}
-      <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-white">
+      <div className="p-5 border-b border-sky-50 flex justify-between items-center bg-white">
         <div>
-          <h2 className="text-lg font-semibold text-sky-700">Lista de Pacientes</h2>
+          <h2 className="text-xl font-bold text-sky-900">Directorio de Pacientes</h2>
           <p className="text-sm text-slate-500">Registro histórico general del laboratorio</p>
         </div>
         
@@ -170,7 +163,7 @@ export function TablaPacientes() {
           <button 
             onClick={abrirModalCrear}
             disabled={!puedeGestionarPacientes}
-            className={`px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors ${!puedeGestionarPacientes ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
+            className={`px-5 py-2.5 rounded-xl text-sm font-bold shadow-md transition-all ${!puedeGestionarPacientes ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' : 'bg-emerald-500 hover:bg-emerald-400 text-white hover:-translate-y-0.5'}`}
           >
             + Nuevo Paciente
           </button>
@@ -178,22 +171,22 @@ export function TablaPacientes() {
       </div>
 
       {/* BARRA DE HERRAMIENTAS (TOOLBAR) INCRUSTADA */}
-      <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row gap-4 justify-between items-center">
+      <div className="p-4 border-b border-sky-50 bg-sky-50/30 flex flex-col md:flex-row gap-4 justify-between items-center">
         <div className="w-full md:w-96 relative">
           <input 
             type="text" 
             placeholder="Buscar por Nombre, Apellido o Cédula..."
             value={terminoBusqueda}
             onChange={(e) => setTerminoBusqueda(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-shadow"
+            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-shadow"
           />
-          <span className="absolute left-3 top-2 text-slate-400">🔍</span>
+          <span className="absolute left-3 top-2 text-slate-400 text-lg">🔍</span>
         </div>
         
         {(terminoBusqueda || configuracionOrden) && (
           <button 
             onClick={resetearFiltros}
-            className="px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 hover:text-rose-700 rounded-lg transition-colors font-medium whitespace-nowrap"
+            className="px-4 py-2 text-sm text-rose-500 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-colors font-bold whitespace-nowrap"
           >
             ✕ Limpiar Filtros
           </button>
@@ -204,17 +197,17 @@ export function TablaPacientes() {
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-white text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-200 select-none">
-              <th onClick={() => manejarOrden('nombre')} className="p-4 cursor-pointer hover:bg-slate-50 transition-colors">
+            <tr className="bg-white text-sky-800 text-xs font-bold uppercase tracking-wider border-b border-sky-100 select-none">
+              <th onClick={() => manejarOrden('nombre')} className="p-4 cursor-pointer hover:bg-sky-50 transition-colors">
                 Paciente {indicadorOrden('nombre')}
               </th>
-              <th onClick={() => manejarOrden('cedula')} className="p-4 cursor-pointer hover:bg-slate-50 transition-colors">
+              <th onClick={() => manejarOrden('cedula')} className="p-4 cursor-pointer hover:bg-sky-50 transition-colors">
                 Cédula {indicadorOrden('cedula')}
               </th>
-              <th onClick={() => manejarOrden('telefono')} className="p-4 cursor-pointer hover:bg-slate-50 transition-colors">
+              <th onClick={() => manejarOrden('telefono')} className="p-4 cursor-pointer hover:bg-sky-50 transition-colors">
                 Teléfono {indicadorOrden('telefono')}
               </th>
-              <th onClick={() => manejarOrden('sexo')} className="p-4 cursor-pointer hover:bg-slate-50 transition-colors">
+              <th onClick={() => manejarOrden('sexo')} className="p-4 cursor-pointer hover:bg-sky-50 transition-colors">
                 Sexo {indicadorOrden('sexo')}
               </th>
               <th className="p-4 text-center">Acciones</th>
@@ -223,7 +216,7 @@ export function TablaPacientes() {
           <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
             {pacientesProcesados.length === 0 ? (
               <tr>
-                <td colSpan={5} className="p-12 text-center text-slate-400">
+                <td colSpan={5} className="p-12 text-center text-slate-500 bg-slate-50/50 italic">
                   <p>No se encontraron pacientes con los filtros actuales.</p>
                 </td>
               </tr>
@@ -239,21 +232,21 @@ export function TablaPacientes() {
                 const isActive = paciente.isActive ?? (paciente as any).IsActive ?? true;
 
                 return (
-                  <tr key={id} className={`transition-colors ${!isActive ? 'bg-rose-50/40 opacity-75' : 'hover:bg-slate-50'}`}>
+                  <tr key={id} className={`transition-colors ${!isActive ? 'bg-rose-50/40 opacity-75' : 'hover:bg-sky-50/50'}`}>
                     <td className="p-4">
-                      <div className="font-semibold text-slate-800">
+                      <div className="font-bold text-sky-900">
                         {nombre} {apellido}
                         {!isActive && (
-                          <span className="ml-2 text-[10px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                          <span className="ml-2 text-[10px] bg-rose-100 border border-rose-200 text-rose-700 px-2 py-0.5 rounded-md font-bold uppercase tracking-wider">
                             Inactivo
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="p-4 font-medium text-slate-600">{cedula}</td>
-                    <td className="p-4 text-slate-600">{telefono}</td>
+                    <td className="p-4 font-semibold text-slate-600">{cedula}</td>
+                    <td className="p-4 text-slate-600 font-medium">{telefono}</td>
                     <td className="p-4">
-                      <span className="bg-sky-50 text-sky-700 px-2.5 py-1 rounded text-xs font-medium border border-sky-100">
+                      <span className="bg-sky-50 text-sky-700 border border-sky-100 px-2.5 py-1 rounded text-xs font-bold">
                         {sexo}
                       </span>
                     </td>
@@ -263,7 +256,7 @@ export function TablaPacientes() {
                         <button 
                           onClick={() => abrirModalEditar(paciente)}
                           disabled={!puedeGestionarPacientes}
-                          className={`font-medium text-xs px-3 py-1.5 rounded transition-colors ${!puedeGestionarPacientes ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-sky-50 text-sky-600 hover:text-sky-800'}`}
+                          className={`font-bold text-xs px-3 py-1.5 rounded-lg transition-colors ${!puedeGestionarPacientes ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-sky-50 text-sky-600 border border-sky-100 hover:bg-sky-100 hover:text-sky-800'}`}
                         >
                           Editar
                         </button>
@@ -273,12 +266,12 @@ export function TablaPacientes() {
                         <button 
                           onClick={() => alternarEstadoPaciente(id, nombre, isActive)}
                           disabled={!puedeGestionarPacientes}
-                          className={`font-medium text-xs px-3 py-1.5 rounded transition-colors ${
+                          className={`font-bold text-xs px-3 py-1.5 rounded-lg transition-colors border ${
                             !puedeGestionarPacientes 
-                              ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                              ? 'bg-slate-100 border-transparent text-slate-400 cursor-not-allowed' 
                               : isActive 
-                                ? 'bg-rose-50 text-rose-600 hover:text-rose-800' 
-                                : 'bg-emerald-50 text-emerald-600 hover:text-emerald-800'
+                                ? 'bg-rose-50 border-rose-100 text-rose-600 hover:text-rose-800 hover:bg-rose-100' 
+                                : 'bg-emerald-50 border-emerald-100 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-100'
                           }`}
                         >
                           {isActive ? 'Desactivar' : 'Activar'}

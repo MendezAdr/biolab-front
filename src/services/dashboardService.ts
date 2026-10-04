@@ -10,26 +10,6 @@ export interface MetricasDashboard {
   ventasSemanales: { semana: string; total: number }[];
 }
 
-const dashboardMockData: MetricasDashboard = {
-  pacientesTotales: 142,
-  ordenesPendientes: 18,
-  ingresosDelMes: 1240.50,
-  examenesTop: [
-    { nombre: 'Hematología Completa', cantidad: 45 },
-    { nombre: 'Perfil Lipídico', cantidad: 30 },
-    { nombre: 'Glucosa', cantidad: 25 },
-    { nombre: 'Heces', cantidad: 15 },
-    { nombre: 'Orina', cantidad: 12 }
-  ],
-  ventasSemanales: [
-    { semana: 'Sem 1', total: 350 },
-    { semana: 'Sem 2', total: 420 },
-    { semana: 'Sem 3', total: 290 },
-    { semana: 'Sem 4', total: 180 }
-  ]
-};
-
-// Estructura segura en caso de base de datos vacía
 const metricasVacias: MetricasDashboard = {
     pacientesTotales: 0,
     ordenesPendientes: 0,
@@ -49,9 +29,7 @@ export const dashboardService = {
     
     if (AppConfig.usarMocks) {
       console.warn("🔧 MOCK: Obteniendo métricas del dashboard simuladas");
-      return new Promise((resolve) => {
-        setTimeout(() => resolve(dashboardMockData), 800); 
-      });
+      return metricasVacias; // Retiramos el mock para forzar datos reales
     }
 
     try {
@@ -64,12 +42,9 @@ export const dashboardService = {
         ordenesService.getByFechas(primerDiaMes, ultimoDiaMes, usuarioId)
       ]);
 
-      // CORRECCIÓN: Extraemos '.data' o el array si el backend retorna la lista directa,
-      // y si viene null/undefined, forzamos un array vacío [] para que .filter() no colapse.
       const pacientesLista = pacientesBD?.Data || pacientesBD || [];
       const ordenesLista = ordenesMesBD?.Data || ordenesMesBD || [];
 
-      // Si no hay datos en absoluto, devolvemos el cascarón vacío de inmediato
       if (!Array.isArray(ordenesLista) || ordenesLista.length === 0) {
           return { ...metricasVacias, pacientesTotales: pacientesLista.length };
       }
@@ -77,15 +52,25 @@ export const dashboardService = {
       const pacientesTotales = pacientesLista.length;
       const ordenesMes = ordenesLista;
 
-      const ordenesPendientes = ordenesMes.filter((o: any) => o.EstadoPago === 2 || o.EstadoPago === 3 || o.Estado === 2).length;
+      // EXTRACCIÓN SEGURA (camelCase y PascalCase)
+      const ordenesPendientes = ordenesMes.filter((o: any) => {
+        const estPago = o.estadoPago ?? o.EstadoPago;
+        const est = o.estado ?? o.Estado;
+        return estPago === 2 || estPago === 3 || est === 2;
+      }).length;
 
-      const ingresosDelMes = ordenesMes.reduce((suma: number, orden: any) => suma + (orden.TotalDivisa || 0), 0);
+      // Sumar TotalDivisa de forma tolerante
+      const ingresosDelMes = ordenesMes.reduce((suma: number, orden: any) => {
+        const monto = orden.totalDivisa ?? orden.TotalDivisa ?? 0;
+        return suma + monto;
+      }, 0);
 
       const conteoExamenes: Record<string, number> = {};
       ordenesMes.forEach((orden: any) => {
-          if (orden.Detalles && Array.isArray(orden.Detalles)) {
-              orden.Detalles.forEach((detalle: any) => {
-                  const nombre = detalle.ExamenNombre || 'Desconocido';
+          const detalles = orden.detalles ?? orden.Detalles ?? [];
+          if (Array.isArray(detalles)) {
+              detalles.forEach((detalle: any) => {
+                  const nombre = detalle.examenNombre ?? detalle.ExamenNombre ?? 'Desconocido';
                   conteoExamenes[nombre] = (conteoExamenes[nombre] || 0) + 1;
               });
           }
@@ -104,9 +89,10 @@ export const dashboardService = {
       ];
       
       ordenesMes.forEach((orden: any) => {
-          const fecha = new Date(orden.FechaCreacion || orden.Fecha);
+          const fechaStr = orden.fechaOrden ?? orden.FechaOrden ?? orden.fechaCreacion ?? orden.FechaCreacion;
+          const fecha = new Date(fechaStr || new Date());
           const dia = fecha.getDate();
-          const monto = orden.TotalDivisa || 0;
+          const monto = orden.totalDivisa ?? orden.TotalDivisa ?? 0;
           
           if (dia <= 7) ventasSemanales[0].total += monto;
           else if (dia <= 14) ventasSemanales[1].total += monto;
@@ -124,7 +110,6 @@ export const dashboardService = {
 
     } catch (error) {
       console.error("Error crítico al compilar métricas reales:", error);
-      // Fallback seguro: Si el servidor falla, el panel mostrará ceros en vez de una pantalla blanca
       return metricasVacias; 
     }
   }

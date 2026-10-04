@@ -20,9 +20,6 @@ export function NuevaOrdenPanel() {
   const { usuario, tienePermiso } = useAuth();
   const currentUserId = usuario?.id || 1; 
 
-  // ==========================================
-  // EVALUACIÓN DE PRIVILEGIOS
-  // ==========================================
   const puedeCrearPaciente = tienePermiso(PERMISOS.MODIFICAR_PACIENTES);
   const puedeRegistrarPagos = tienePermiso(PERMISOS.GESTIONAR_PAGOS);
   const puedeCrearOrden = tienePermiso(PERMISOS.CREAR_ORDENES_Y_DETALLES);
@@ -71,7 +68,6 @@ export function NuevaOrdenPanel() {
   };
 
   useEffect(() => {
-    // PROTECCIÓN: Solo cargamos datos si tiene acceso al módulo
     if (puedeCrearOrden) {
       cargarDatosMaestros();
     } else {
@@ -142,7 +138,17 @@ export function NuevaOrdenPanel() {
 
   const agregarPago = () => {
     const montoNum = Number(montoPagoInput);
-    if (!montoNum || montoNum <= 0) return;
+
+    if (!montoNum || montoNum <= 0) {
+      toast.error("El monto del pago debe ser mayor a cero.");
+      return;
+    }
+
+    if (montoNum > saldoRestante) {
+      toast.error(`No puedes registrar un pago superior al saldo pendiente ($${saldoRestante.toFixed(2)}).`);
+      setMontoPagoInput(saldoRestante.toFixed(2));
+      return;
+    }
 
     const requiereReferencia = [2, 3, 6].includes(metodoPagoSeleccionado);
     if (requiereReferencia && !referenciaPagoInput.trim()) {
@@ -150,7 +156,6 @@ export function NuevaOrdenPanel() {
       return;
     }
 
-    // MAPEO EN camelCase
     setPagosAgregados([...pagosAgregados, {
       monto: montoNum,
       metodo: metodoPagoSeleccionado,
@@ -172,7 +177,6 @@ export function NuevaOrdenPanel() {
 
     const pacienteId = pacienteSeleccionado.id ?? (pacienteSeleccionado as any).Id;
 
-    // PAYLOAD STRICTAMENTE EN camelCase
     const nuevaOrden: OrdenCreateDTO = {
       numeroFactura: `ORD-${Date.now()}`, 
       pacienteId: pacienteId,
@@ -202,12 +206,11 @@ export function NuevaOrdenPanel() {
     );
   };
 
-  // PANTALLA DE RESTRICCIÓN DE ACCESO
   if (!puedeCrearOrden) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 bg-white border border-slate-200 rounded-xl shadow-sm mx-auto max-w-2xl mt-12 text-center">
+      <div className="flex flex-col items-center justify-center p-12 bg-white border border-sky-100 rounded-xl shadow-sm mx-auto max-w-2xl mt-12 text-center">
         <span className="text-6xl mb-4 opacity-80">🔒</span>
-        <h2 className="text-xl font-bold text-slate-800 mb-2">Acceso Restringido</h2>
+        <h2 className="text-xl font-bold text-sky-900 mb-2">Acceso Restringido</h2>
         <p className="text-slate-500">
           Tu nivel de acceso actual no te permite facturar ni emitir nuevas órdenes en el sistema.
         </p>
@@ -215,19 +218,19 @@ export function NuevaOrdenPanel() {
     );
   }
 
-  if (cargandoGlobal) return <div className="p-10 text-center animate-pulse text-slate-500">Inicializando sistema de facturación...</div>;
-  if (errorGlobal) return <div className="p-10 text-center text-red-600">{errorGlobal}</div>;
+  if (cargandoGlobal) return <div className="p-10 text-center animate-pulse text-sky-600 font-medium">Inicializando sistema de facturación...</div>;
+  if (errorGlobal) return <div className="p-10 text-center text-rose-600">{errorGlobal}</div>;
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 p-4">
       <Toaster position="bottom-right" />
-      <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+      <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-sky-100 shadow-sm">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">Nueva Orden de Laboratorio</h2>
-          <p className="text-sm text-slate-500">Operador actual: <span className="font-semibold text-emerald-700">{usuario?.nombre || 'Desconocido'}</span></p>
+          <h2 className="text-xl font-bold text-sky-900">Nueva Orden de Laboratorio</h2>
+          <p className="text-sm text-slate-500">Operador actual: <span className="font-bold text-sky-600">{usuario?.nombre || 'Desconocido'}</span></p>
         </div>
-        <div className="bg-sky-50 border border-sky-100 text-sky-800 px-4 py-2 rounded-lg text-sm font-bold flex flex-col items-end">
-          <span>Tasa BCV del Día</span>
+        <div className="bg-sky-50 border border-sky-200 text-sky-900 px-4 py-2 rounded-lg text-sm font-bold flex flex-col items-end shadow-sm">
+          <span className="text-sky-600 text-xs uppercase tracking-wider">Tasa BCV del Día</span>
           <span className="text-lg">Bs. {tasaBcv.toFixed(2)}</span>
         </div>
       </div>
@@ -235,15 +238,15 @@ export function NuevaOrdenPanel() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <h3 className="font-bold text-slate-700 mb-4 border-b pb-2">1. Identificación del Paciente</h3>
+          <div className="bg-white p-5 rounded-xl border border-sky-100 shadow-sm">
+            <h3 className="font-bold text-sky-900 mb-4 border-b border-sky-50 pb-2">1. Identificación del Paciente</h3>
             {pacienteSeleccionado ? (
-              <div className="flex justify-between items-center bg-emerald-50 border border-emerald-200 p-4 rounded-lg">
+              <div className="flex justify-between items-center bg-emerald-50 border border-emerald-200 p-4 rounded-lg shadow-sm">
                 <div>
                   <p className="text-sm font-bold text-emerald-800">{pacienteSeleccionado.nombre ?? (pacienteSeleccionado as any).Nombre} {pacienteSeleccionado.apellido ?? (pacienteSeleccionado as any).Apellido}</p>
-                  <p className="text-xs text-emerald-700">C.I: {pacienteSeleccionado.cedula ?? (pacienteSeleccionado as any).Cedula}</p>
+                  <p className="text-xs text-emerald-600 font-medium mt-1">C.I: {pacienteSeleccionado.cedula ?? (pacienteSeleccionado as any).Cedula}</p>
                 </div>
-                <button onClick={() => setPacienteSeleccionado(null)} className="text-xs text-rose-500 hover:underline">
+                <button onClick={() => setPacienteSeleccionado(null)} className="text-xs font-bold text-emerald-700 bg-emerald-100 px-3 py-1.5 rounded hover:bg-emerald-200 transition-colors">
                   Cambiar Paciente
                 </button>
               </div>
@@ -256,8 +259,8 @@ export function NuevaOrdenPanel() {
                   onChange={(e) => setBusquedaCedula(e.target.value)}
                   className={`w-full rounded-lg px-4 py-3 text-sm text-slate-700 focus:outline-none transition-all duration-300 ${
                     requiereAtencionPaciente 
-                      ? 'border-2 border-rose-400 bg-rose-50 placeholder-rose-300 focus:border-rose-500' 
-                      : 'border border-slate-300 bg-white focus:border-emerald-500'
+                      ? 'border-2 border-rose-400 bg-rose-50 placeholder-rose-300 focus:border-rose-500 focus:ring-1 focus:ring-rose-500' 
+                      : 'border border-slate-300 bg-white focus:border-sky-500 focus:ring-1 focus:ring-sky-500'
                   }`}
                 />
                 {requiereAtencionPaciente && (
@@ -266,7 +269,7 @@ export function NuevaOrdenPanel() {
                   </p>
                 )}
                 {busquedaCedula.length >= 3 && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden">
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-sky-100 rounded-lg shadow-xl overflow-hidden">
                     {pacientesSugeridos.length > 0 ? (
                       pacientesSugeridos.map((p, index) => {
                         const idSeguro = p.id ?? (p as any).Id ?? index;
@@ -274,19 +277,19 @@ export function NuevaOrdenPanel() {
                         const nombre = p.nombre ?? (p as any).Nombre;
                         const apellido = p.apellido ?? (p as any).Apellido;
                         return (
-                          <div key={idSeguro} onClick={() => setPacienteSeleccionado(p)} className="p-3 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0">
-                            <span className="font-semibold text-sm">{cedula}</span> - <span className="text-sm text-slate-600">{nombre} {apellido}</span>
+                          <div key={idSeguro} onClick={() => setPacienteSeleccionado(p)} className="p-3 hover:bg-sky-50 cursor-pointer border-b border-slate-100 last:border-0 transition-colors">
+                            <span className="font-semibold text-sm text-sky-700">{cedula}</span> <span className="text-slate-400 mx-1">-</span> <span className="text-sm text-slate-600 font-medium">{nombre} {apellido}</span>
                           </div>
                         );
                       })
                     ) :(
-                      <div className="p-4 text-center">
-                        <p className="text-sm text-slate-500 mb-3">No hay pacientes con esa cédula.</p>
+                      <div className="p-5 text-center bg-slate-50">
+                        <p className="text-sm text-slate-500 mb-3">No hay pacientes registrados con esa cédula.</p>
                         <div className="inline-block" title={!puedeCrearPaciente ? "Tu rol no tiene permiso para registrar pacientes nuevos." : ""}>
                           <button 
                             onClick={() => setModalPacienteAbierto(true)} 
                             disabled={!puedeCrearPaciente}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${!puedeCrearPaciente ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'}`}
+                            className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors shadow-sm ${!puedeCrearPaciente ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border border-emerald-200'}`}
                           >
                             + Registrar Nuevo Paciente
                           </button>
@@ -299,10 +302,13 @@ export function NuevaOrdenPanel() {
             )}
           </div>
 
-          <div className={`bg-white p-5 rounded-xl border border-slate-200 shadow-sm transition-opacity ${!seccionExamenesHabilitada ? 'opacity-50 pointer-events-none' : ''}`}>
-            <h3 className="font-bold text-slate-700 mb-4 border-b pb-2">2. Selección de Exámenes</h3>
-            <input type="text" placeholder="🔍 Buscar examen (ej. Hematología)..." value={busquedaExamen} onChange={(e) => setBusquedaExamen(e.target.value)} className="w-full border border-slate-300 text-slate-700 rounded-lg px-4 py-2 text-sm mb-4 bg-slate-50" />
-            <div className="max-h-64 overflow-y-auto border border-slate-100 rounded-lg">
+          <div className={`bg-white p-5 rounded-xl border border-sky-100 shadow-sm transition-opacity ${!seccionExamenesHabilitada ? 'opacity-50 pointer-events-none' : ''}`}>
+            <h3 className="font-bold text-sky-900 mb-4 border-b border-sky-50 pb-2">2. Selección de Exámenes</h3>
+            <div className="relative mb-4">
+              <input type="text" placeholder="Buscar examen (ej. Hematología)..." value={busquedaExamen} onChange={(e) => setBusquedaExamen(e.target.value)} className="w-full border border-slate-300 text-slate-700 rounded-lg pl-10 pr-4 py-2.5 text-sm bg-slate-50 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-shadow" />
+              <span className="absolute left-3 top-2.5 text-slate-400 text-lg">🔍</span>
+            </div>
+            <div className="max-h-64 overflow-y-auto border border-sky-50 rounded-lg custom-scrollbar">
               {examenesFiltrados.map(examen => {
                 const exId = examen.id ?? (examen as any).Id;
                 const nombreExamen = examen.nombreExamen ?? (examen as any).NombreExamen;
@@ -310,7 +316,7 @@ export function NuevaOrdenPanel() {
                 const estaEnCarrito = examenesCarrito.some(e => (e.id ?? (e as any).Id) === exId);
                 
                 return (
-                  <div key={exId} className="flex justify-between items-center p-3 hover:bg-slate-50 border-b border-slate-50">
+                  <div key={exId} className="flex justify-between items-center p-3 hover:bg-sky-50 border-b border-slate-50 transition-colors">
                     <div>
                       <p className="text-sm font-medium text-slate-700">{nombreExamen}</p>
                     </div>
@@ -320,10 +326,10 @@ export function NuevaOrdenPanel() {
                       <button 
                         onClick={() => agregarAlCarrito(examen)} 
                         disabled={estaEnCarrito}
-                        className={`px-3 py-1 rounded text-xs font-bold transition-colors ${
+                        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm ${
                           estaEnCarrito 
-                            ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
-                            : 'text-white bg-slate-800 hover:bg-slate-700'
+                            ? 'bg-sky-100 text-sky-500 cursor-not-allowed border border-sky-200' 
+                            : 'text-white bg-sky-500 hover:bg-sky-600 hover:shadow-md'
                         }`}
                       >
                         {estaEnCarrito ? 'Añadido ✔️' : 'Añadir'}
@@ -335,30 +341,30 @@ export function NuevaOrdenPanel() {
             </div>
           </div>
 
-          <div className={`bg-white p-5 rounded-xl border border-slate-200 shadow-sm transition-opacity ${examenesCarrito.length === 0 ? 'opacity-50 pointer-events-none hidden' : ''}`}>
-            <h3 className="font-bold text-slate-700 mb-4 border-b pb-2">3. Distribución de Pagos</h3>
+          <div className={`bg-white p-5 rounded-xl border border-sky-100 shadow-sm transition-opacity ${examenesCarrito.length === 0 ? 'opacity-50 pointer-events-none hidden' : ''}`}>
+            <h3 className="font-bold text-sky-900 mb-4 border-b border-sky-50 pb-2">3. Distribución de Pagos</h3>
             
-            <div className="flex gap-3 items-end mb-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
+            <div className="flex gap-3 items-end mb-4 bg-sky-50/50 p-4 rounded-lg border border-sky-100">
               <div className="flex-1">
-                <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Método</label>
-                <select value={metodoPagoSeleccionado} onChange={(e) => setMetodoPagoSeleccionado(Number(e.target.value))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white">
+                <label className="block text-xs font-bold text-sky-800 uppercase tracking-wider mb-1">Método</label>
+                <select value={metodoPagoSeleccionado} onChange={(e) => setMetodoPagoSeleccionado(Number(e.target.value))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-shadow">
                   {PagoMetodo.map(m => <option key={m.id} value={m.id}>{m.metodo}</option>)}
                 </select>
               </div>
               <div className="flex-1">
-                <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Monto (USD)</label>
-                <input type="number" step="0.01" value={montoPagoInput} onChange={(e) => setMontoPagoInput(e.target.value)} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white" placeholder="0.00" />
+                <label className="block text-xs font-bold text-sky-800 uppercase tracking-wider mb-1">Monto (USD)</label>
+                <input type="number" step="0.01" value={montoPagoInput} onChange={(e) => setMontoPagoInput(e.target.value)} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-shadow" placeholder="0.00" />
               </div>
               <div className="flex-1">
-                <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Ref. (Opcional)</label>
-                <input type="text" value={referenciaPagoInput} onChange={(e) => setReferenciaPagoInput(e.target.value)} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white" placeholder="N/A" />
+                <label className="block text-xs font-bold text-sky-800 uppercase tracking-wider mb-1">Ref. (Opcional)</label>
+                <input type="text" value={referenciaPagoInput} onChange={(e) => setReferenciaPagoInput(e.target.value)} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-shadow" placeholder="N/A" />
               </div>
               
               <div className="inline-block" title={!puedeRegistrarPagos ? "Tu rol no tiene permiso para procesar pagos ni manejar caja." : ""}>
                 <button 
                   onClick={agregarPago} 
                   disabled={saldoRestante <= 0 || !puedeRegistrarPagos} 
-                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors h-[38px] ${(!puedeRegistrarPagos || saldoRestante <= 0) ? 'bg-slate-400 text-white cursor-not-allowed' : 'bg-sky-600 hover:bg-sky-700 text-white'}`}
+                  className={`px-5 py-2 rounded-lg text-sm font-bold transition-all h-[38px] shadow-sm ${(!puedeRegistrarPagos || saldoRestante <= 0) ? 'bg-slate-300 text-white cursor-not-allowed' : 'bg-sky-500 hover:bg-sky-600 text-white hover:shadow-md'}`}
                 >
                   Añadir Pago
                 </button>
@@ -370,14 +376,14 @@ export function NuevaOrdenPanel() {
                 {pagosAgregados.map((p, index) => {
                   const nombreMetodo = PagoMetodo.find(m => m.id === p.metodo)?.metodo || 'Desconocido';
                   return (
-                    <div key={index} className="flex justify-between items-center bg-white border border-slate-200 p-2 rounded-lg text-sm">
+                    <div key={index} className="flex justify-between items-center bg-white border border-sky-100 shadow-sm p-3 rounded-lg text-sm">
                       <div>
-                        <span className="font-semibold text-slate-700">{nombreMetodo}</span>
-                        {p.referencia && <span className="text-slate-400 ml-2">(Ref: {p.referencia})</span>}
+                        <span className="font-bold text-sky-900">{nombreMetodo}</span>
+                        {p.referencia && <span className="text-slate-400 ml-2 font-medium">(Ref: {p.referencia})</span>}
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className="font-bold text-sky-700">${p.monto.toFixed(2)}</span>
-                        <button onClick={() => quitarPago(index)} className="text-rose-500 hover:text-rose-700 font-bold">✕</button>
+                      <div className="flex items-center gap-4">
+                        <span className="font-black text-emerald-600">${p.monto.toFixed(2)}</span>
+                        <button onClick={() => quitarPago(index)} className="text-rose-400 hover:text-rose-600 bg-rose-50 hover:bg-rose-100 p-1.5 rounded-md transition-colors font-bold flex items-center justify-center">✕</button>
                       </div>
                     </div>
                   );
@@ -388,23 +394,27 @@ export function NuevaOrdenPanel() {
         </div>
 
         <div className="lg:col-span-1">
-          <div className="bg-slate-800 text-white p-5 rounded-xl shadow-lg sticky top-6">
-            <h3 className="font-bold text-lg mb-4 border-b border-slate-600 pb-2">Resumen de la Orden</h3>
+          <div className="bg-sky-900 text-white p-6 rounded-xl shadow-xl border border-sky-800 sticky top-6">
+            <h3 className="font-bold text-lg mb-4 border-b border-sky-700 pb-3 flex items-center">
+              <span className="mr-2">📄</span> Resumen de la Orden
+            </h3>
             
-            <div className="min-h-[150px] max-h-[300px] overflow-y-auto mb-4 space-y-2 pr-2">
+            <div className="min-h-[150px] max-h-[300px] overflow-y-auto mb-5 space-y-2.5 pr-2 custom-scrollbar">
               {examenesCarrito.length === 0 ? (
-                <p className="text-sm text-slate-400 text-center italic mt-10">Aún no hay exámenes añadidos.</p>
+                <div className="h-32 flex items-center justify-center">
+                  <p className="text-sm text-sky-300/70 text-center italic">Aún no hay exámenes añadidos.</p>
+                </div>
               ) : (
                 examenesCarrito.map(ex => {
                   const exId = ex.id ?? (ex as any).Id;
                   const nombreExamen = ex.nombreExamen ?? (ex as any).NombreExamen;
                   const costo = ex.costoEnDivisa ?? (ex as any).CostoEnDivisa;
                   return (
-                    <div key={exId} className="flex justify-between text-sm bg-slate-700 p-2 rounded">
-                      <span className="truncate pr-2">{nombreExamen}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-emerald-400">${costo}</span>
-                        <button onClick={() => quitarDelCarrito(exId)} className="text-rose-400 hover:text-rose-300 font-bold">✕</button>
+                    <div key={exId} className="flex justify-between items-center text-sm bg-sky-800/80 p-3 rounded-lg border border-sky-700/50">
+                      <span className="truncate pr-2 font-medium">{nombreExamen}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="font-bold text-emerald-400">${costo}</span>
+                        <button onClick={() => quitarDelCarrito(exId)} className="text-sky-300 hover:text-rose-400 transition-colors font-bold text-xs bg-sky-900 p-1 rounded">✕</button>
                       </div>
                     </div>
                   );
@@ -412,24 +422,24 @@ export function NuevaOrdenPanel() {
               )}
             </div>
 
-            <div className="border-t border-slate-600 pt-4 space-y-2 mb-4">
-              <div className="flex justify-between text-sm text-slate-300">
+            <div className="border-t border-sky-700 pt-4 space-y-3 mb-5">
+              <div className="flex justify-between text-sm text-sky-100 font-medium">
                 <span>Subtotal USD:</span>
-                <span>${totalDivisa.toFixed(2)}</span>
+                <span className="font-bold">${totalDivisa.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-sm text-sky-300">
+              <div className="flex justify-between text-sm text-sky-300 font-medium">
                 <span>Equivalente VES:</span>
                 <span>Bs. {totalBolivares.toFixed(2)}</span>
               </div>
             </div>
 
-            <div className="bg-slate-900 p-3 rounded-lg border border-slate-700 space-y-2">
-               <div className="flex justify-between text-sm text-slate-300">
+            <div className="bg-sky-950 p-4 rounded-xl border border-sky-800 space-y-3 shadow-inner">
+               <div className="flex justify-between text-sm text-sky-200 font-medium">
                 <span>Total Abonado:</span>
-                <span className="text-sky-400">${totalPagado.toFixed(2)}</span>
+                <span className="text-emerald-400 font-bold">${totalPagado.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between font-bold text-lg pt-2 border-t border-slate-700">
-                <span>Saldo Pendiente:</span>
+              <div className="flex justify-between font-black text-lg pt-3 border-t border-sky-800/80">
+                <span className="text-white">Saldo Pendiente:</span>
                 <span className={saldoRestante <= 0 ? 'text-emerald-400' : 'text-rose-400'}>
                   ${saldoRestante.toFixed(2)}
                 </span>
@@ -440,7 +450,7 @@ export function NuevaOrdenPanel() {
               <button 
                 onClick={procesarOrdenFinal}
                 disabled={examenesCarrito.length === 0 || !pacienteSeleccionado || !puedeCrearOrden}
-                className={`w-full font-bold py-3 rounded-lg transition-colors text-white ${(!puedeCrearOrden || examenesCarrito.length === 0 || !pacienteSeleccionado ) ? 'bg-slate-600 cursor-not-allowed text-slate-400' : 'bg-emerald-500 hover:bg-emerald-400'}`}
+                className={`w-full font-bold py-3.5 rounded-xl transition-all shadow-lg text-white text-sm uppercase tracking-wide ${(!puedeCrearOrden || examenesCarrito.length === 0 || !pacienteSeleccionado ) ? 'bg-slate-700/50 border border-slate-600 cursor-not-allowed text-slate-400 shadow-none' : 'bg-sky-500 hover:bg-sky-400 border border-sky-400 hover:-translate-y-0.5'}`}
               >
                 {saldoRestante === totalDivisa 
                   ? 'Guardar como Pendiente' 

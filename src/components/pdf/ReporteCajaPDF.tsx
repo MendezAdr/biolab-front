@@ -15,6 +15,7 @@ const styles = StyleSheet.create({
   infoSection: { border: '1pt solid #000', padding: 8, marginBottom: 15, flexDirection: 'row', justifyContent: 'space-between' },
   rowText: { marginBottom: 3 },
   bold: { fontWeight: 'bold' },
+  alertaRoja: { color: '#d9534f' }, // Estilo para resaltar la deuda
 
   table: { width: '100%', border: '1pt solid #000', borderBottom: 0 },
   tableHeader: { flexDirection: 'row', backgroundColor: '#e5e5e5', borderBottom: '1pt solid #000' },
@@ -35,15 +36,19 @@ interface Props { reporte: ReporteCaja; usuarioNombre: string; }
 
 export function ReporteCajaPDF({ reporte, usuarioNombre }: Props) {
   const desgloseSeguro = Array.isArray(reporte?.desglosePorMetodo) ? reporte.desglosePorMetodo : [];
+  
+  // Variables contables
   const totalFacturadoDivisa = Number(reporte?.totalFacturadoDivisa) || 0;
   const totalFacturadoBs = Number(reporte?.totalFacturadoBs) || 0;
+  const totalEmitido = Number(reporte?.totalEmitidoDivisa) || 0;
+  const deudaGenerada = Number(reporte?.deudaGeneradaDivisa) || 0;
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
           <View style={styles.logoBox}>
-            <Image src="/img/logo-RIV_CARR.png" style={styles.logo} />
+            <Image src="/img/logo-RIV_CARR.jpg" style={styles.logo} />
           </View>
           <View style={styles.titleBox}>
             <Text style={styles.labTitle}>LABORATORIO CLÍNICO</Text>
@@ -59,13 +64,22 @@ export function ReporteCajaPDF({ reporte, usuarioNombre }: Props) {
           <View>
             <Text style={styles.rowText}><Text style={styles.bold}>PERIODO:</Text> {reporte?.rango?.inicio || 'N/A'} al {reporte?.rango?.fin || 'N/A'}</Text>
             <Text style={styles.rowText}><Text style={styles.bold}>ÓRDENES PROCESADAS:</Text> {reporte?.totalOrdenes || 0}</Text>
+            
+            {/* NUEVOS CAMPOS DE BALANCE */}
+            <Text style={styles.rowText}><Text style={styles.bold}>VALOR BRUTO EMITIDO:</Text> ${totalEmitido.toFixed(2)}</Text>
+            {deudaGenerada > 0.01 && (
+              <Text style={[styles.rowText, styles.alertaRoja]}>
+                <Text style={styles.bold}>SALDO PENDIENTE (CRÉDITO):</Text> ${deudaGenerada.toFixed(2)}
+              </Text>
+            )}
           </View>
+          
           <View style={{ textAlign: 'right' }}>
             <Text style={styles.rowText}><Text style={styles.bold}>CAJERO:</Text> {usuarioNombre}</Text>
           </View>
         </View>
 
-        <Text style={[styles.bold, { marginBottom: 5 }]}>DESGLOSE DE INGRESOS POR MÉTODO DE PAGO</Text>
+        <Text style={[styles.bold, { marginBottom: 5 }]}>DESGLOSE DE INGRESOS (DINERO EN CAJA)</Text>
         <View style={styles.table}>
           <View style={styles.tableHeader}>
             <View style={styles.col1}><Text style={styles.bold}>MÉTODO DE PAGO</Text></View>
@@ -98,7 +112,7 @@ export function ReporteCajaPDF({ reporte, usuarioNombre }: Props) {
         </View>
 
         <Text style={styles.footerText} fixed>
-          DOCUMENTO DE CONTROL INTERNO - SISTEMA AUTOMATIZADO BIOLAB
+          DOCUMENTO DE CONTROL INTERNO - SISTEMA AUTOMATIZADO RIV_CARR.
         </Text>
       </Page>
     </Document>

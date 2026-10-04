@@ -7,6 +7,8 @@ export interface ReporteCaja {
     fechaGeneracion: Date;
     rango: { inicio: string; fin: string };
     totalOrdenes: number;
+    totalEmitidoDivisa: number;  // NUEVO: Valor total de las facturas (Ej. $15)
+    deudaGeneradaDivisa: number;
     totalFacturadoDivisa: number;
     totalFacturadoBs: number;
     desglosePorMetodo: { metodoId: number; nombre: string; montoTotal: number }[];
@@ -37,30 +39,32 @@ export const impresionesService = {
     
     // 1. Reporte de Caja (El que ya teníamos, sin cambios mayores)
     generarReporteCaja: (ordenes: Orden[], fechaInicio: string, fechaFin: string): ReporteCaja => {
-        let totalFacturadoDivisa = 0;
-        let totalFacturadoBs = 0;
+        let totalDineroIngresadoDivisa = 0;
+        let totalDineroIngresadoBs = 0;
+        let totalEmitidoDivisa = 0; 
         const sumatoriaMetodos: Record<number, number> = {};
 
         ordenes.forEach(orden => {
-            // Lectura tolerante para los totales
             const totalDivisa = orden.totalDivisa ?? (orden as any).TotalDivisa ?? 0;
             const tasaBcv = orden.tasaBcv ?? (orden as any).TasaBcv ?? 0;
 
-            totalFacturadoDivisa += totalDivisa;
-            totalFacturadoBs += (totalDivisa * tasaBcv);
-            
-            // Lectura tolerante para el array de pagos
+            // Sumamos el valor bruto de la orden procesada
+            totalEmitidoDivisa += totalDivisa;
+
             const listaPagos = orden.pagos || (orden as any).Pagos || [];
 
             if (listaPagos.length > 0) {
                 listaPagos.forEach((pago: any) => {
-                    // Soportar camelCase y PascalCase
                     const metodoId = pago.metodo ?? pago.Metodo;
                     const monto = pago.monto ?? pago.Monto ?? 0;
 
                     if (metodoId) {
                         if (!sumatoriaMetodos[metodoId]) sumatoriaMetodos[metodoId] = 0;
                         sumatoriaMetodos[metodoId] += monto;
+
+                        // Sumamos SOLO el dinero real que entró a caja
+                        totalDineroIngresadoDivisa += monto;
+                        totalDineroIngresadoBs += (monto * tasaBcv);
                     }
                 });
             }
@@ -76,8 +80,10 @@ export const impresionesService = {
             fechaGeneracion: new Date(),
             rango: { inicio: fechaInicio, fin: fechaFin },
             totalOrdenes: ordenes.length,
-            totalFacturadoDivisa,
-            totalFacturadoBs,
+            totalEmitidoDivisa: totalEmitidoDivisa,
+            deudaGeneradaDivisa: totalEmitidoDivisa - totalDineroIngresadoDivisa,
+            totalFacturadoDivisa: totalDineroIngresadoDivisa,
+            totalFacturadoBs: totalDineroIngresadoBs,
             desglosePorMetodo
         };
     },
@@ -93,31 +99,57 @@ export const impresionesService = {
     },
 
     // 3. Reporte de Morosos y Órdenes Pendientes
+    // 3. Reporte de Morosos y Órdenes Pendientes (Con Extracción Segura y Matemática Blindada)
     generarReporteMorosos: (ordenes: Orden[], pacientes: Paciente[]): ReporteMorosos => {
-        const ordenesPendientes = ordenes.filter(o => {
-            // Asumiendo que 2 = Pendiente y 3 = Parcial en tu EstadoPagoEnum
-            return o.estado === 2 || o.estado === 3 ;
-        });
-
         let totalDeuda = 0;
+        const ordenesMapeadas: any[] = [];
 
-        const ordenesMapeadas = ordenesPendientes.map(orden => {
-            const paciente = pacientes.find(p => p.id === orden.pacienteId);
-            const totalPagado = orden.pagos?.reduce((acc, p) => acc + p.monto, 0) || 0;
-            const deuda = orden.totalDivisa - totalPagado;
-            
-            totalDeuda += deuda;
+        ordenes.forEach(orden => {
+            // 1. Extracción segura de la orden (Soporta camelCase y PascalCase)
+            const estado = orden.estado ?? (orden as any).Estado;
+            const estadoPago = orden.estadoPago ?? (orden as any).EstadoPago;
+            const totalDivisa = orden.totalDivisa ?? (orden as any).TotalDivisa ?? 0;
+            const pacienteId = orden.pacienteId ?? (orden as any).PacienteId;
+            const numeroFactura = orden.numeroFactura ?? (orden as any).NumeroFactura ?? 'N/A';
+            const fechaOrden = orden.fechaOrden ?? (orden as any).FechaOrden ?? orden.fechaOrden ?? (orden as any).FechaOrden ?? new Date();
 
-            return {
-                ordenId: orden.id,
-                numeroFactura: orden.numeroFactura,
-                pacienteNombre: paciente ? `${paciente.nombre} ${paciente.apellido}` : 'Desconocido',
-                pacienteCedula: paciente ? paciente.cedula : 'N/A',
-                fechaEmision: new Date(orden.fechaOrden),
-                totalOrden: orden.totalDivisa,
-                montoPagado: totalPagado,
-                deudaPendiente: deuda
-            };
+            // 2. Cálculo seguro y real de los pagos
+            const listaPagos = orden.pagos || (orden as any).Pagos || [];
+            const totalPagado = listaPagos.reduce((acc: number, p: any) => {
+                const montoPago = Number(p.monto ?? p.Monto) || 0;
+                return acc + montoPago;
+            }, 0);
+
+            // 3. Matemática estricta
+            const deudaReal = totalDivisa - totalPagado;
+
+            // 4. DOBLE VALIDACIÓN: 
+            // Consideramos moroso a quien tenga un estado deudor (2 o 3) 
+            // *PERO* la deuda real matemática debe ser estrictamente mayor a 0.
+            const etiquetaMoroso = (estado === 2 || estado === 3 || estadoPago === 2 || estadoPago === 3);
+
+            // Usamos > 0.01 para evitar los errores de decimales "flotantes" de JavaScript (ej. 0.00000001)
+            if (etiquetaMoroso && deudaReal > 0.01) {
+                
+                // Extracción segura del paciente
+                const paciente = pacientes.find(p => (p.id ?? (p as any).Id) === pacienteId);
+                const pacienteNombre = paciente?.nombre ?? (paciente as any)?.Nombre;
+                const pacienteApellido = paciente?.apellido ?? (paciente as any)?.Apellido;
+                const pacienteCedula = paciente?.cedula ?? (paciente as any)?.Cedula;
+                
+                totalDeuda += deudaReal;
+
+                ordenesMapeadas.push({
+                    ordenId: orden.id ?? (orden as any).Id,
+                    numeroFactura: numeroFactura,
+                    pacienteNombre: paciente ? `${pacienteNombre} ${pacienteApellido}`.trim() : 'Desconocido',
+                    pacienteCedula: paciente ? pacienteCedula : 'N/A',
+                    fechaEmision: new Date(fechaOrden),
+                    totalOrden: totalDivisa,
+                    montoPagado: totalPagado,
+                    deudaPendiente: deudaReal
+                });
+            }
         });
 
         return {

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { PermisosSistema, type RolCreateDTO, type RolUpdateDTO, type RolResponseDTO } from '../../types/DTOs/RolDTOS';
 
-// 1. IMPORTAMOS EL CONTEXTO Y LOS PERMISOS
 import { useAuth } from '../../context/AuthContext';
 import { PERMISOS } from '../../types/AuthTypes';
 import { AuditoriaFooter } from './AuditoriaFooter';
@@ -27,7 +26,6 @@ export function ModalRol({ isOpen, onClose, onGuardar, rolExistente }: ModalRolP
   useEffect(() => {
     if (isOpen) {
       if (esModoEdicion && rolExistente) {
-        // EXTRACCIÓN SEGURA (camelCase)
         setNombre(rolExistente.rolName ?? '');
         setPermisosSeleccionados(rolExistente.permisos ?? []);
       } else {
@@ -62,7 +60,6 @@ export function ModalRol({ isOpen, onClose, onGuardar, rolExistente }: ModalRolP
       return;
     }
 
-    // PAYLOADS EN camelCase ESTRICTO
     if (esModoEdicion && rolExistente) {
       const rolActualizado: RolUpdateDTO = {
         id: rolExistente.id,
@@ -81,51 +78,51 @@ export function ModalRol({ isOpen, onClose, onGuardar, rolExistente }: ModalRolP
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-xl shadow-xl border border-slate-200 max-w-2xl w-full p-6">
+      <div className="absolute inset-0 bg-sky-950/60 backdrop-blur-sm transition-opacity" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl border border-sky-100 max-w-2xl w-full p-7">
         
-        <div className="flex justify-between items-center mb-6 border-b pb-3">
-          <h3 className="text-lg font-bold text-slate-800">
+        <div className="flex justify-between items-center mb-6 border-b border-sky-50 pb-3">
+          <h3 className="text-xl font-bold text-sky-900">
             {esModoEdicion ? 'Modificar Privilegios del Rol' : 'Definir Nuevo Rol'}
           </h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 font-bold p-1">✕</button>
+          <button onClick={onClose} className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg p-1.5 transition-colors font-bold text-xl">✕</button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Nombre del Rol *</label>
+            <label className="block text-xs font-bold text-sky-800 uppercase tracking-wider mb-1.5">Nombre del Rol *</label>
             <input 
               type="text" 
               value={nombre} 
               onChange={(e) => setNombre(e.target.value)} 
               disabled={!puedeGestionarRoles}
               placeholder="Ej. Recepcionista, Auditor..."
-              className={`w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none ${!puedeGestionarRoles ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-50 text-slate-700 focus:border-emerald-500'}`} 
+              className={`w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-shadow ${!puedeGestionarRoles ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-50 text-sky-900'}`} 
             />
           </div>
 
-          <div>
-             <label className="block text-xs font-semibold text-slate-500 uppercase mb-3 border-b pb-1">
+          <div className="bg-sky-50/50 p-4 rounded-xl border border-sky-100 shadow-sm">
+             <label className="block text-xs font-bold text-sky-800 uppercase tracking-wider mb-3 border-b border-sky-200 pb-2">
                 Asignación de Privilegios (Granular)
              </label>
              
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[40vh] overflow-y-auto pr-2">
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
                 {permisosVisuales.map((permiso) => {
                    const estaMarcado = permisosSeleccionados.includes(permiso.id);
                    return (
                      <label 
                         key={permiso.id} 
-                        className={`flex items-center p-3 rounded-lg border transition-colors text-sm ${!puedeGestionarRoles ? 'cursor-not-allowed opacity-60 bg-slate-50 border-slate-200 text-slate-500' : estaMarcado ? 'bg-emerald-50 border-emerald-200 text-emerald-800 cursor-pointer' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer'}`}
+                        className={`flex items-center p-3 rounded-xl border transition-all text-sm shadow-sm ${!puedeGestionarRoles ? 'cursor-not-allowed opacity-60 bg-slate-50 border-slate-200 text-slate-500 shadow-none' : estaMarcado ? 'bg-sky-100 border-sky-300 text-sky-900 cursor-pointer' : 'bg-white border-slate-200 text-slate-700 hover:bg-sky-50 hover:border-sky-200 cursor-pointer'}`}
                      >
                        <input 
                           type="checkbox" 
                           disabled={!puedeGestionarRoles}
-                          className="w-4 h-4 text-emerald-600 bg-white border-slate-300 rounded focus:ring-emerald-500 mr-3 disabled:opacity-50"
+                          className={`w-5 h-5 bg-white border-2 rounded focus:ring-sky-500 mr-3 disabled:opacity-50 transition-colors ${estaMarcado ? 'text-sky-600 border-sky-600' : 'border-slate-300 text-slate-700'}`}
                           checked={estaMarcado}
                           onChange={() => togglePermiso(permiso.id)}
                        />
-                       <span className="font-medium">{permiso.nombre}</span>
+                       <span className="font-bold">{permiso.nombre}</span>
                      </label>
                    );
                 })}
@@ -134,12 +131,12 @@ export function ModalRol({ isOpen, onClose, onGuardar, rolExistente }: ModalRolP
 
           <AuditoriaFooter datosAuditales={rolExistente} />
           
-          <div className="flex justify-between items-center pt-4 border-t border-slate-100">
-            <span className="text-xs text-slate-500 font-medium">
+          <div className="flex justify-between items-center pt-5 border-t border-sky-50 mt-2">
+            <span className="text-[11px] uppercase tracking-wider text-emerald-600 font-bold bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-lg shadow-sm">
                Privilegios seleccionados: {permisosSeleccionados.length}
             </span>
             <div className="space-x-3 flex">
-               <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-500 hover:bg-slate-100 rounded-lg">
+               <button type="button" onClick={onClose} className="px-5 py-2.5 text-sm font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors">
                  Cancelar
                </button>
                
@@ -147,7 +144,7 @@ export function ModalRol({ isOpen, onClose, onGuardar, rolExistente }: ModalRolP
                  <button 
                    type="submit" 
                    disabled={!puedeGestionarRoles}
-                   className={`px-4 py-2 text-sm font-medium rounded-lg shadow-sm transition-colors ${!puedeGestionarRoles ? 'bg-slate-400 text-slate-200 cursor-not-allowed' : esModoEdicion ? 'bg-sky-600 hover:bg-sky-700 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
+                   className={`px-5 py-2.5 text-sm font-bold rounded-xl shadow-md transition-all text-white ${!puedeGestionarRoles ? 'bg-slate-300 cursor-not-allowed shadow-none' : esModoEdicion ? 'bg-sky-500 hover:bg-sky-400 hover:-translate-y-0.5' : 'bg-emerald-500 hover:bg-emerald-400 hover:-translate-y-0.5'}`}
                  >
                    {esModoEdicion ? 'Guardar Cambios' : 'Crear Rol'}
                  </button>
