@@ -7,6 +7,7 @@ import { PagoMetodo, type Pago } from '../../types/PagoModel';
 
 import { useAuth } from '../../context/AuthContext';
 import { PERMISOS } from '../../types/AuthTypes';
+import { AuditoriaFooter } from './AuditoriaFooter';
 
 interface ModalDetallesFacturaProps {
   ordenId: number | null;
@@ -176,7 +177,9 @@ export function ModalDetallesFactura({ ordenId, isOpen, onClose }: ModalDetalles
                 <p className="text-sm text-slate-500">Orden pendiente de pago o sin abonos registrados.</p>
               )}
             </div>
-
+              
+            <AuditoriaFooter datosAuditales={ordenDetalle} />
+            
             <div className="pt-4 flex justify-end">
               <div className="inline-block" title={!puedeVerReportes ? "No tienes permisos para reimprimir facturas o reportes antiguos." : ""}>
                 <button 

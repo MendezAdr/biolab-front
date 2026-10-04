@@ -42,12 +42,26 @@ export const impresionesService = {
         const sumatoriaMetodos: Record<number, number> = {};
 
         ordenes.forEach(orden => {
-            totalFacturadoDivisa += orden.totalDivisa;
-            totalFacturadoBs += (orden.totalDivisa * orden.tasaBcv);
-            if (orden.pagos && orden.pagos.length > 0) {
-                orden.pagos.forEach(pago => {
-                    if (!sumatoriaMetodos[pago.metodo]) sumatoriaMetodos[pago.metodo] = 0;
-                    sumatoriaMetodos[pago.metodo] += pago.monto;
+            // Lectura tolerante para los totales
+            const totalDivisa = orden.totalDivisa ?? (orden as any).TotalDivisa ?? 0;
+            const tasaBcv = orden.tasaBcv ?? (orden as any).TasaBcv ?? 0;
+
+            totalFacturadoDivisa += totalDivisa;
+            totalFacturadoBs += (totalDivisa * tasaBcv);
+            
+            // Lectura tolerante para el array de pagos
+            const listaPagos = orden.pagos || (orden as any).Pagos || [];
+
+            if (listaPagos.length > 0) {
+                listaPagos.forEach((pago: any) => {
+                    // Soportar camelCase y PascalCase
+                    const metodoId = pago.metodo ?? pago.Metodo;
+                    const monto = pago.monto ?? pago.Monto ?? 0;
+
+                    if (metodoId) {
+                        if (!sumatoriaMetodos[metodoId]) sumatoriaMetodos[metodoId] = 0;
+                        sumatoriaMetodos[metodoId] += monto;
+                    }
                 });
             }
         });

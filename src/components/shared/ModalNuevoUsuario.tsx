@@ -6,6 +6,7 @@ import type { Usuario } from '../../types/UsuarioModel';
 
 import { useAuth } from '../../context/AuthContext';
 import { PERMISOS } from '../../types/AuthTypes';
+import { AuditoriaFooter } from './AuditoriaFooter';
 
 interface ModalNuevoUsuarioProps {
   isOpen: boolean;               
@@ -145,6 +146,8 @@ export function ModalNuevoUsuario({ isOpen, onClose, onGuardar, roles, usuarioEx
             </select>
           </div>
           
+          <AuditoriaFooter datosAuditales={usuarioExistente} />
+
           <div className="flex justify-end space-x-3 pt-4 border-t border-slate-100">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-500 hover:bg-slate-100 rounded-lg">
               Cancelar

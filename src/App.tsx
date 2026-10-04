@@ -12,6 +12,7 @@ import { NuevaOrdenPage } from './components/pages/NuevaOrdenPage';
 import { RolesPage } from './components/pages/RolesPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LoginPage } from './components/pages/LoginPage';
+import { MasterDataProvider } from './context/MasterDataContext';
 
 // 1. Sub-componente que actúa como Guardia de Seguridad
 function RutasPrincipales() {
@@ -48,7 +49,9 @@ export default function App() {
     <BrowserRouter>
       {/* AuthProvider envuelve a RutasPrincipales para que useAuth pueda funcionar */}
       <AuthProvider>
-        <RutasPrincipales />
+        <MasterDataProvider>
+          <RutasPrincipales />
+        </MasterDataProvider>
       </AuthProvider>
     </BrowserRouter>
   );

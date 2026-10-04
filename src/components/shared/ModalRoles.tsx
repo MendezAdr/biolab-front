@@ -5,6 +5,7 @@ import { PermisosSistema, type RolCreateDTO, type RolUpdateDTO, type RolResponse
 // 1. IMPORTAMOS EL CONTEXTO Y LOS PERMISOS
 import { useAuth } from '../../context/AuthContext';
 import { PERMISOS } from '../../types/AuthTypes';
+import { AuditoriaFooter } from './AuditoriaFooter';
 
 interface ModalRolProps {
   isOpen: boolean;               
@@ -130,6 +131,8 @@ export function ModalRol({ isOpen, onClose, onGuardar, rolExistente }: ModalRolP
                 })}
              </div>
           </div>
+
+          <AuditoriaFooter datosAuditales={rolExistente} />
           
           <div className="flex justify-between items-center pt-4 border-t border-slate-100">
             <span className="text-xs text-slate-500 font-medium">
