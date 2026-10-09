@@ -32,7 +32,7 @@ export function ModalRegistroPago({ isOpen, onClose, onGuardar, pagoExistente }:
   const [tasaOrdenActiva, setTasaOrdenActiva] = useState<number>(0);
 
   const esModoEdicion = !!pagoExistente;
-  const isMonedaNacional = metodo !== 5; // Bimodal: USD o Bs
+  const isMonedaNacional = metodo !== 5; 
 
   const datosAuditoriaNormalizados = useMemo(() => {
     if (!pagoExistente) return null;
@@ -77,7 +77,6 @@ export function ModalRegistroPago({ isOpen, onClose, onGuardar, pagoExistente }:
     }
   };
 
-  // RECUPERACIÓN INTELIGENTE DE TASA
   useEffect(() => {
     if (isOpen) {
       if (esModoEdicion && pagoExistente) {
@@ -90,7 +89,6 @@ export function ModalRegistroPago({ isOpen, onClose, onGuardar, pagoExistente }:
         setMetodo(met);
         setReferencia(pagoExistente.referencia ?? pagoExistente.Referencia ?? '');
         
-        // Buscar la orden para obtener su tasa original y pintar el input en Bs si hace falta
         ordenesService.getById(oId, currentUserId).then(orden => {
             const tasaHistorica = orden.tasaBcv ?? orden.TasaBcv ?? 1;
             setTasaOrdenActiva(tasaHistorica);
@@ -111,6 +109,12 @@ export function ModalRegistroPago({ isOpen, onClose, onGuardar, pagoExistente }:
     if (busquedaOrden.length < 1 || ordenId !== '') return []; 
     return ordenesActivasBD.filter(o => String(o.id).includes(busquedaOrden.toLowerCase()) || String(o.numeroFactura).toLowerCase().includes(busquedaOrden.toLowerCase()));
   }, [busquedaOrden, ordenesActivasBD, ordenId]);
+
+  // Extraemos la orden actual para cálculos en vivo
+  const ordenActual = useMemo(() => {
+    if (!ordenId) return null;
+    return ordenesActivasBD.find(o => o.id === ordenId) || null;
+  }, [ordenId, ordenesActivasBD]);
 
   if (!isOpen) return null;
 
@@ -135,15 +139,13 @@ export function ModalRegistroPago({ isOpen, onClose, onGuardar, pagoExistente }:
       return;
     }
 
-    // CONVERSIÓN A DÓLARES ANTES DE ENVIAR
     const montoNormalizadoUSD = isMonedaNacional ? (valorInput / tasaOrdenActiva) : valorInput;
 
     if (!esModoEdicion) {
-      const ordenSeleccionada = ordenesActivasBD.find(o => o.id === ordenId);
-      if (ordenSeleccionada) {
-        if (montoNormalizadoUSD > (ordenSeleccionada.deudaRestante + 0.02)) {
-          toast.error(`Abono excesivo. La orden solo debe $${ordenSeleccionada.deudaRestante.toFixed(2)}.`);
-          setMontoInput(isMonedaNacional ? (ordenSeleccionada.deudaRestante * tasaOrdenActiva).toFixed(2) : ordenSeleccionada.deudaRestante.toFixed(2));
+      if (ordenActual) {
+        if (montoNormalizadoUSD > (ordenActual.deudaRestante + 0.02)) {
+          toast.error(`Abono excesivo. La orden solo debe $${ordenActual.deudaRestante.toFixed(2)}.`);
+          setMontoInput(isMonedaNacional ? (ordenActual.deudaRestante * tasaOrdenActiva).toFixed(2) : ordenActual.deudaRestante.toFixed(2));
           return;
         }
       }
@@ -172,6 +174,14 @@ export function ModalRegistroPago({ isOpen, onClose, onGuardar, pagoExistente }:
     }
   };
 
+  // Cálculo de simulación de pago en vivo
+  const calcularNuevaDeuda = () => {
+    if (!ordenActual) return 0;
+    const valorPagar = Number(montoInput) || 0;
+    const pagoUSD = isMonedaNacional ? (valorPagar / tasaOrdenActiva) : valorPagar;
+    return Math.max(0, ordenActual.deudaRestante - pagoUSD);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-sky-950/60 backdrop-blur-sm transition-opacity" onClick={onClose} />
@@ -195,16 +205,19 @@ export function ModalRegistroPago({ isOpen, onClose, onGuardar, pagoExistente }:
               value={busquedaOrden} 
               onChange={(e) => { setBusquedaOrden(e.target.value); setOrdenId(''); setTasaOrdenActiva(0); }} 
               disabled={esModoEdicion} 
-              className={`w-full border rounded-lg px-3 py-2.5 text-sm bg-slate-50 transition-shadow ${ordenId !== '' ? 'border-emerald-400 focus:border-emerald-500 focus:ring-emerald-500 bg-emerald-50/50' : 'border-slate-300 focus:border-sky-500'}`} 
+              className={`w-full border rounded-lg px-3 py-2.5 text-sm text-sky-900 bg-slate-50 transition-shadow ${ordenId !== '' ? 'border-emerald-400 focus:border-emerald-500 focus:ring-emerald-500 bg-emerald-50/50' : 'border-slate-300 focus:border-sky-500'}`} 
               placeholder={cargandoOrdenes ? "Cargando órdenes..." : "Buscar por ID o N° Factura..."}
             />
 
             {!esModoEdicion && ordenesSugeridas.length > 0 && (
               <div className="absolute z-50 w-full mt-1 bg-white border border-sky-100 rounded-xl shadow-xl max-h-48 overflow-y-auto">
                 {ordenesSugeridas.map((orden) => (
-                    <div key={orden.id} onClick={() => seleccionarOrden(orden)} className="p-3 hover:bg-sky-50 cursor-pointer border-b border-slate-100 flex justify-between">
+                    <div key={orden.id} onClick={() => seleccionarOrden(orden)} className="p-3 hover:bg-sky-50 cursor-pointer border-b border-slate-100 flex justify-between items-center">
                       <div><span className="font-bold text-sky-700">ORD-{orden.id}</span></div>
-                      <span className="text-xs font-bold text-rose-500">Debe: ${orden.deudaRestante.toFixed(2)}</span>
+                      <div className="text-right">
+                         <span className="text-xs font-bold text-rose-500 block leading-tight">Debe: ${orden.deudaRestante.toFixed(2)}</span>
+                         <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider mt-0.5">Bs. {(orden.deudaRestante * orden.tasaBcv).toFixed(2)}</span>
+                      </div>
                     </div>
                 ))}
               </div>
@@ -241,12 +254,34 @@ export function ModalRegistroPago({ isOpen, onClose, onGuardar, pagoExistente }:
             </div>
           </div>
           
-          {montoInput && ordenId && (
-            <p className="text-xs text-slate-500 font-medium">
-                Sincronización en base de datos: <span className="font-bold text-slate-700">
-                    ${isMonedaNacional ? (Number(montoInput) / tasaOrdenActiva).toFixed(2) : Number(montoInput).toFixed(2)} USD
-                </span>
-            </p>
+          {/* PANEL INFORMATIVO DE SALDOS */}
+          {ordenActual && (
+            <div className="bg-sky-50 border border-sky-100 p-3 rounded-lg shadow-inner">
+               <div className="flex justify-between items-center text-xs mb-1.5">
+                  <span className="font-bold text-sky-800">Deuda actual:</span>
+                  <div className="text-right">
+                     <span className="font-bold text-rose-500 mr-2">${ordenActual.deudaRestante.toFixed(2)}</span>
+                     <span className="text-slate-500 font-medium">Bs. {(ordenActual.deudaRestante * tasaOrdenActiva).toFixed(2)}</span>
+                  </div>
+               </div>
+
+               {montoInput && (
+                 <>
+                   <div className="flex justify-between items-center text-xs mb-1.5 border-t border-sky-100 pt-1.5">
+                      <span className="text-slate-500">Pago equivalente a:</span>
+                      <span className="font-bold text-slate-700">
+                          {isMonedaNacional ? `$${(Number(montoInput) / tasaOrdenActiva).toFixed(2)} USD` : `Bs. ${(Number(montoInput) * tasaOrdenActiva).toFixed(2)}`}
+                      </span>
+                   </div>
+                   <div className="flex justify-between items-center text-xs border-t border-sky-100 pt-1.5">
+                      <span className="font-bold text-sky-800 uppercase tracking-wider">Restante a pagar:</span>
+                      <span className={`font-black ${calcularNuevaDeuda() <= 0.01 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                          ${calcularNuevaDeuda().toFixed(2)}
+                      </span>
+                   </div>
+                 </>
+               )}
+            </div>
           )}
 
           <div>

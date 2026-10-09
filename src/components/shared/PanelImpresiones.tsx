@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
+import toast, { Toaster } from 'react-hot-toast'; 
 import { ordenesService } from '../../services/ordenesService';
 import { pacienteService } from '../../services/pacienteService';
 import { impresionesService, type ReporteCaja, type ReportePacientes, type ReporteMorosos } from '../../services/ImpresionesService';
@@ -54,6 +55,18 @@ export function PanelImpresiones() {
 
   const tienePermisoParaReporte = evaluarPermisoNecesario();
 
+  // ==========================================
+  // LÓGICA DE VALIDACIÓN DE FECHAS EN TIEMPO REAL
+  // ==========================================
+  // Obtenemos la fecha de hoy en formato local (YYYY-MM-DD) para usarlo en el atributo 'max'
+  const hoy = new Date();
+  const fechaHoyString = new Date(hoy.getTime() - (hoy.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+
+  // Cálculos automáticos de estado de error
+  const fechasInvertidas = Boolean(fechaInicio && fechaFin && fechaInicio > fechaFin);
+  const fechasFuturas = Boolean((fechaInicio && fechaInicio > fechaHoyString) || (fechaFin && fechaFin > fechaHoyString));
+  const hayErrorFechas = fechasInvertidas || fechasFuturas;
+
   const obtenerDocumentoPDF = () => {
     if (datosFactura) return <FacturaPDF datos={datosFactura} usuarioNombre={nombreUsuarioActual} />;
     if (datosPresupuesto) return <PresupuestoPDF datos={datosPresupuesto} usuarioNombre={nombreUsuarioActual} />;
@@ -67,6 +80,7 @@ export function PanelImpresiones() {
   const manejarExportacionExcel = () => {
     if (reporteCaja) {
       excelExportService.exportarCaja(reporteCaja);
+      toast.success("Documento Excel generado correctamente.");
     }
   };
 
@@ -84,9 +98,9 @@ export function PanelImpresiones() {
     setReporteMorosos(null);
     
     if (tipoReporteSeleccionado === 'cierre_diario') {
-      const hoy = new Date().toISOString().split('T')[0];
-      setFechaInicio(hoy);
-      setFechaFin(hoy);
+      const hoyStr = new Date().toISOString().split('T')[0];
+      setFechaInicio(hoyStr);
+      setFechaFin(hoyStr);
     } else {
       setFechaInicio('');
       setFechaFin('');
@@ -95,19 +109,34 @@ export function PanelImpresiones() {
 
   const manejarGenerarReporte = async () => {
     if (!tienePermisoParaReporte) {
-      alert("No posees los privilegios necesarios para generar este tipo de reporte.");
+      toast.error("No posees los privilegios necesarios para generar este tipo de reporte.");
+      return;
+    }
+
+    if ((tipoReporteSeleccionado === 'cierre_fechas' || tipoReporteSeleccionado === 'cierre_diario') && hayErrorFechas) {
+      toast.error("Error, fechas invertidas o inválidas.");
       return;
     }
 
     setCargando(true);
     try {
       if (tipoReporteSeleccionado === 'cierre_diario' || tipoReporteSeleccionado === 'cierre_fechas') {
-        if (!fechaInicio || !fechaFin) return alert("Seleccione las fechas.");
-        const inicio = new Date(fechaInicio);
-        const fin = new Date(fechaFin);
-        fin.setHours(23, 59, 59, 999);
+        
+        if (!fechaInicio || !fechaFin) {
+            toast.error("Por favor, seleccione una fecha de inicio y una de fin.");
+            setCargando(false);
+            return;
+        }
+        
+        const inicio = new Date(fechaInicio + 'T00:00:00');
+        const fin = new Date(fechaFin + 'T23:59:59');
         
         const ordenesBrutas = await ordenesService.getByFechas(inicio, fin, currentUserId);
+        
+        if(ordenesBrutas.length === 0) {
+            toast.success("No hay registros en el rango seleccionado.");
+        }
+
         setReporteCaja(impresionesService.generarReporteCaja(ordenesBrutas, fechaInicio, fechaFin));
       
       } else if (tipoReporteSeleccionado === 'pacientes') {
@@ -125,8 +154,8 @@ export function PanelImpresiones() {
           vistaPreviaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }, 200);
       }
-    } catch (err) {
-      alert("Error al generar el reporte.");
+    } catch (err: any) {
+      toast.error(err.message || "Ocurrió un error de conexión al generar el reporte.");
     } finally {
       setCargando(false);
     }
@@ -137,6 +166,7 @@ export function PanelImpresiones() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
+      <Toaster position="bottom-right" reverseOrder={false} />
       
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 print:hidden">
         
@@ -180,15 +210,37 @@ export function PanelImpresiones() {
             <p className="text-sm text-slate-500 mb-6">Ajuste los parámetros antes de generar la vista previa del reporte.</p>
             
             {(tipoReporteSeleccionado === 'cierre_fechas' || tipoReporteSeleccionado === 'cierre_diario') && (
-              <div className="flex gap-4 items-end bg-sky-50/50 p-5 rounded-xl border border-sky-100 mb-6">
-                <div className="flex-1">
-                  <label className="block text-xs font-bold text-sky-800 uppercase tracking-wider mb-1.5">Fecha de Inicio</label>
-                  <input type="date" disabled={tipoReporteSeleccionado === 'cierre_diario'} value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} className="w-full border border-slate-300 text-slate-700 rounded-lg px-3 py-2.5 text-sm disabled:bg-slate-100 disabled:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-shadow" />
+              <div className="mb-6">
+                <div className={`flex gap-4 items-end p-5 rounded-xl border transition-colors ${hayErrorFechas && tipoReporteSeleccionado === 'cierre_fechas' ? 'bg-rose-50/50 border-rose-200' : 'bg-sky-50/50 border-sky-100'}`}>
+                  <div className="flex-1">
+                    <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${hayErrorFechas && tipoReporteSeleccionado === 'cierre_fechas' ? 'text-rose-700' : 'text-sky-800'}`}>Fecha de Inicio</label>
+                    <input 
+                      type="date" 
+                      max={fechaHoyString} // Bloquea fechas futuras en el calendario nativo
+                      disabled={tipoReporteSeleccionado === 'cierre_diario'} 
+                      value={fechaInicio} 
+                      onChange={(e) => setFechaInicio(e.target.value)} 
+                      className={`w-full border rounded-lg px-3 py-2.5 text-sm disabled:bg-slate-100 disabled:text-slate-400 focus:outline-none focus:ring-1 transition-shadow ${hayErrorFechas && tipoReporteSeleccionado === 'cierre_fechas' ? 'border-rose-400 text-rose-800 bg-white focus:border-rose-500 focus:ring-rose-500' : 'border-slate-300 text-slate-700 bg-white focus:border-sky-500 focus:ring-sky-500'}`} 
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${hayErrorFechas && tipoReporteSeleccionado === 'cierre_fechas' ? 'text-rose-700' : 'text-sky-800'}`}>Fecha de Fin</label>
+                    <input 
+                      type="date" 
+                      max={fechaHoyString} // Bloquea fechas futuras en el calendario nativo
+                      disabled={tipoReporteSeleccionado === 'cierre_diario'} 
+                      value={fechaFin} 
+                      onChange={(e) => setFechaFin(e.target.value)} 
+                      className={`w-full border rounded-lg px-3 py-2.5 text-sm disabled:bg-slate-100 disabled:text-slate-400 focus:outline-none focus:ring-1 transition-shadow ${hayErrorFechas && tipoReporteSeleccionado === 'cierre_fechas' ? 'border-rose-400 text-rose-800 bg-white focus:border-rose-500 focus:ring-rose-500' : 'border-slate-300 text-slate-700 bg-white focus:border-sky-500 focus:ring-sky-500'}`} 
+                    />
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <label className="block text-xs font-bold text-sky-800 uppercase tracking-wider mb-1.5">Fecha de Fin</label>
-                  <input type="date" disabled={tipoReporteSeleccionado === 'cierre_diario'} value={fechaFin} onChange={(e) => setFechaFin(e.target.value)} className="w-full border border-slate-300 text-slate-700 rounded-lg px-3 py-2.5 text-sm disabled:bg-slate-100 disabled:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-shadow" />
-                </div>
+                {/* Mensaje de error dinámico */}
+                {hayErrorFechas && tipoReporteSeleccionado === 'cierre_fechas' && (
+                  <p className="text-xs text-rose-600 font-bold mt-3 ml-1 animate-pulse flex items-center">
+                    <span className="mr-1 text-sm">⚠️</span> Error, fechas invertidas o inválidas (no se permiten fechas futuras).
+                  </p>
+                )}
               </div>
             )}
             
@@ -214,8 +266,8 @@ export function PanelImpresiones() {
             <div className="inline-block" title={!tienePermisoParaReporte ? mensajePermisoDenegado : ""}>
               <button 
                 onClick={manejarExportacionExcel}
-                disabled={!puedeExportarExcel || datosPresupuesto !== null || datosFactura !== null || !tienePermisoParaReporte}
-                className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm flex items-center gap-2 ${(!puedeExportarExcel || datosPresupuesto !== null || datosFactura !== null || !tienePermisoParaReporte) ? 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'}`}
+                disabled={!puedeExportarExcel || datosPresupuesto !== null || datosFactura !== null || !tienePermisoParaReporte || hayErrorFechas}
+                className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm flex items-center gap-2 ${(!puedeExportarExcel || datosPresupuesto !== null || datosFactura !== null || !tienePermisoParaReporte || hayErrorFechas) ? 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'}`}
               >
                 <span>📊</span> Exportar a Excel
               </button>
@@ -228,8 +280,9 @@ export function PanelImpresiones() {
                 <div className="inline-block" title={!tienePermisoParaReporte ? mensajePermisoDenegado : ""}>
                   <button 
                     onClick={manejarGenerarReporte} 
-                    disabled={cargando || !tienePermisoParaReporte} 
-                    className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all shadow-md ${(!tienePermisoParaReporte) ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' : 'bg-sky-900 hover:bg-sky-800 text-white hover:-translate-y-0.5'}`}
+                    // BLOQUEO EN TIEMPO REAL SI HAY ERRORES DE FECHAS
+                    disabled={cargando || !tienePermisoParaReporte || (tipoReporteSeleccionado === 'cierre_fechas' && hayErrorFechas)} 
+                    className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all shadow-md ${(!tienePermisoParaReporte || (tipoReporteSeleccionado === 'cierre_fechas' && hayErrorFechas)) ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' : 'bg-sky-900 hover:bg-sky-800 text-white hover:-translate-y-0.5'}`}
                   >
                     {cargando ? '⏳ Cargando...' : '👁️ Generar Vista Previa'}
                   </button>

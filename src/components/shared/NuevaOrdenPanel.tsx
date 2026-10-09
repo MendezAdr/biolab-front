@@ -267,7 +267,7 @@ export function NuevaOrdenPanel() {
                   placeholder="Ingrese Cédula del paciente..."
                   value={busquedaCedula}
                   onChange={(e) => setBusquedaCedula(e.target.value)}
-                  className="w-full rounded-lg px-4 py-3 text-sm border border-slate-300 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                  className="w-full rounded-lg px-4 py-3 text-sm text-sky-900 border border-slate-300 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
                 />
                 {busquedaCedula.length >= 3 && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-sky-100 rounded-lg shadow-xl overflow-hidden">
@@ -294,7 +294,7 @@ export function NuevaOrdenPanel() {
           <div className={`bg-white p-5 rounded-xl border border-sky-100 shadow-sm transition-opacity ${!seccionExamenesHabilitada ? 'opacity-50 pointer-events-none' : ''}`}>
             <h3 className="font-bold text-sky-900 mb-4 border-b border-sky-50 pb-2">2. Selección de Exámenes</h3>
             <div className="relative mb-4">
-              <input type="text" placeholder="Buscar examen..." value={busquedaExamen} onChange={(e) => setBusquedaExamen(e.target.value)} className="w-full border border-slate-300 rounded-lg pl-10 pr-4 py-2.5 text-sm bg-slate-50" />
+              <input type="text" placeholder="Buscar examen..." value={busquedaExamen} onChange={(e) => setBusquedaExamen(e.target.value)} className="w-full border border-slate-300 rounded-lg pl-10 pr-4 py-2.5 text-sm text-sky-900 bg-slate-50" />
               <span className="absolute left-3 top-2.5 text-slate-400 text-lg">🔍</span>
             </div>
             <div className="max-h-64 overflow-y-auto border border-sky-50 rounded-lg custom-scrollbar">
