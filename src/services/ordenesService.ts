@@ -36,6 +36,25 @@ const ordenesMockData = [
     }
 ];
 
+
+const normalizarOrden = (o: any) => {
+    return {
+        ...o,
+        // Estandarización a camelCase forzada
+        id: o.id ?? o.Id,
+        numeroFactura: o.numeroFactura ?? o.NumeroFactura,
+        pacienteId: o.pacienteId ?? o.PacienteId,
+        fechaOrden: o.fechaOrden ?? o.FechaOrden ?? o.fechaCreacion ?? o.FechaCreacion,
+        totalDivisa: Number(o.totalDivisa ?? o.TotalDivisa ?? 0),
+        tasaBcv: Number(o.tasaBcv ?? o.TasaBcv ?? 0),
+        estado: o.estado ?? o.Estado,
+        estadoPago: o.estadoPago ?? o.EstadoPago ?? o.estado ?? o.Estado, // Fallback mutuo
+        // Arreglos
+        detalles: o.detalles ?? o.Detalles ?? [],
+        pagos: o.pagos ?? o.Pagos ?? []
+    };
+};
+
 // Interceptor de Errores 400 (Validación Automática de ASP.NET Core)
 const manejarErrorHttp = (error: any, mensajePorDefecto: string) => {
     if (error.response?.status === 400 && error.response?.data?.errors) {
@@ -60,25 +79,12 @@ const manejarErrorHttp = (error: any, mensajePorDefecto: string) => {
 };
 
 export const ordenesService = {
-    // --------------------------------------------------------
-    // MÉTODOS GET
-    // --------------------------------------------------------
-
     getAll: async (adminId: number) => {
-        if (AppConfig.usarMocks) {
-            return new Promise((resolve) => setTimeout(() => resolve(ordenesMockData), 500));
-        }
-        
+        if (AppConfig.usarMocks) return [];
         try {
-            const response = await apiClient.get('/ordenes', {
-                headers: { 'X-Admin-Id': adminId }
-            });
-            const resultado = response.data;
-            const exito = resultado.Success ?? resultado.success ?? resultado.Exito ?? resultado.exito;
-
-            if (exito === false) throw new Error(resultado.Message ?? resultado.mensaje ?? "Error al cargar las órdenes.");
-            
-            return resultado.Data ?? resultado.data ?? resultado ?? [];
+            const response = await apiClient.get('/ordenes', { headers: { 'X-Admin-Id': adminId } });
+            const datosBrutos = response.data?.Data ?? response.data?.data ?? response.data ?? [];
+            return Array.isArray(datosBrutos) ? datosBrutos.map(normalizarOrden) : [];
         } catch (error: any) {
             if (error.response?.status === 404) return [];
             throw manejarErrorHttp(error, "Fallo de conexión al cargar la lista de órdenes.");
@@ -86,153 +92,58 @@ export const ordenesService = {
     },
 
     getById: async (id: number, adminId: number) => {
-        if (AppConfig.usarMocks) {
-            return new Promise((resolve) => setTimeout(() => resolve(ordenesMockData.find(o => o.id === id)), 500));
-        }
-        
+        if (AppConfig.usarMocks) return null;
         try {
-            const response = await apiClient.get(`/ordenes/${id}`, {
-                headers: { 'X-Admin-Id': adminId }
-            });
-            const resultado = response.data;
-            const exito = resultado.Success ?? resultado.success ?? resultado.Exito ?? resultado.exito;
-
-            if (exito === false) throw new Error(resultado.Message ?? resultado.mensaje ?? "Orden no encontrada.");
-            
-            return resultado.Data ?? resultado.data ?? resultado.objeto ?? resultado;
+            const response = await apiClient.get(`/ordenes/${id}`, { headers: { 'X-Admin-Id': adminId } });
+            const resultado = response.data?.Data ?? response.data?.data ?? response.data.objeto ?? response.data;
+            return normalizarOrden(resultado);
         } catch (error: any) {
-            if (error.response?.status === 404) throw new Error("La orden especificada no existe.");
             throw manejarErrorHttp(error, "Error al buscar los detalles de la orden.");
         }
     },
 
     getByFechas: async (inicio: Date, fin: Date, adminId: number) => {
-        if (AppConfig.usarMocks) {
-            return new Promise((resolve) => setTimeout(() => resolve(ordenesMockData), 500));
-        }
-        
+        if (AppConfig.usarMocks) return [];
         try {
-            const queryParams = new URLSearchParams({
-                inicio: inicio.toISOString(),
-                fin: fin.toISOString()
-            });
-            
-            const response = await apiClient.get(`/ordenes/rango?${queryParams.toString()}`, {
-                headers: { 'X-Admin-Id': adminId }
-            });
-            const resultado = response.data;
-            const exito = resultado.Success ?? resultado.success ?? resultado.Exito ?? resultado.exito;
-
-            if (exito === false) throw new Error(resultado.Message ?? resultado.mensaje);
-            
-            return resultado.Data ?? resultado.data ?? resultado ?? [];
+            const params = new URLSearchParams({ inicio: inicio.toISOString(), fin: fin.toISOString() });
+            const response = await apiClient.get(`/ordenes/rango?${params.toString()}`, { headers: { 'X-Admin-Id': adminId } });
+            const datosBrutos = response.data?.Data ?? response.data?.data ?? response.data ?? [];
+            return Array.isArray(datosBrutos) ? datosBrutos.map(normalizarOrden) : [];
         } catch (error: any) {
             if (error.response?.status === 404) return [];
-            throw manejarErrorHttp(error, "Fallo de conexión al filtrar órdenes por fecha.");
+            throw manejarErrorHttp(error, "Fallo de conexión al filtrar órdenes.");
         }
     },
 
-    getByPaciente: async (pacienteId: number, adminId: number) => {
-        if (AppConfig.usarMocks) {
-            return new Promise((resolve) => setTimeout(() => resolve(ordenesMockData.filter(o => o.pacienteId === pacienteId)), 500));
-        }
-        
+    getUnpaid: async (adminId: number) => {
+        if (AppConfig.usarMocks) return [];
         try {
-            const response = await apiClient.get(`/ordenes/paciente/${pacienteId}`, {
-                headers: { 'X-Admin-Id': adminId }
-            });
-            const resultado = response.data;
-            const exito = resultado.Success ?? resultado.success ?? resultado.Exito ?? resultado.exito;
-
-            if (exito === false) throw new Error(resultado.Message ?? resultado.mensaje);
-            
-            return resultado.Data ?? resultado.data ?? resultado ?? [];
+            const response = await apiClient.get(`/ordenes/unpaid/`, { headers: { 'X-Admin-Id': adminId } });
+            const datosBrutos = response.data?.Data ?? response.data?.data ?? response.data ?? [];
+            return Array.isArray(datosBrutos) ? datosBrutos.map(normalizarOrden) : [];
         } catch (error: any) {
             if (error.response?.status === 404) return [];
-            throw manejarErrorHttp(error, "Fallo de conexión al cargar el historial del paciente.");
+            throw manejarErrorHttp(error, "Fallo de conexión al filtrar órdenes no pagadas.");
         }
     },
-
-    getByEstado: async (estado: EstadoPago, adminId: number) => {
-        if (AppConfig.usarMocks) {
-            return new Promise((resolve) => setTimeout(() => resolve(ordenesMockData.filter(o => o.estadoPago === estado)), 500));
-        }
-        
-        try {
-            const response = await apiClient.get(`/ordenes/estado/${estado}`, {
-                headers: { 'X-Admin-Id': adminId }
-            });
-            const resultado = response.data;
-            const exito = resultado.Success ?? resultado.success ?? resultado.Exito ?? resultado.exito;
-
-            if (exito === false) throw new Error(resultado.Message ?? resultado.mensaje);
-            
-            return resultado.Data ?? resultado.data ?? resultado ?? [];
-        } catch (error: any) {
-            if (error.response?.status === 404) return [];
-            throw manejarErrorHttp(error, "Fallo de conexión al filtrar órdenes por estado.");
-        }
-    },
-
-    // --------------------------------------------------------
-    // MÉTODOS POST, PUT, PATCH
-    // --------------------------------------------------------
 
     create: async (nuevaOrden: OrdenCreateDTO, usuarioId: number) => {
-        if (AppConfig.usarMocks) {
-            return new Promise((resolve) => setTimeout(() => resolve({ success: true }), 500));
-        }
-        
+        if (AppConfig.usarMocks) return { success: true };
         try {
-            const response = await apiClient.post('/ordenes', nuevaOrden, {
-                // Notar que en tu controlador de C#, Create usa 'X-Usuario-Id'
-                headers: { 'X-Usuario-Id': usuarioId } 
-            });
-            const resultado = response.data;
-            const exito = resultado.Success ?? resultado.success ?? resultado.Exito ?? resultado.exito;
-
-            if (exito === false) throw new Error(resultado.Message ?? resultado.mensaje);
-            return resultado;
+            const response = await apiClient.post('/ordenes', nuevaOrden, { headers: { 'X-Usuario-Id': usuarioId } });
+            return response.data;
         } catch (error: any) {
             throw manejarErrorHttp(error, "Ocurrió un error al procesar la orden.");
         }
     },
 
     anular: async (id: number, adminId: number) => {
-        if (AppConfig.usarMocks) {
-            return new Promise((resolve) => setTimeout(() => resolve({ success: true }), 500));
-        }
-        
+        if (AppConfig.usarMocks) return { success: true };
         try {
-            const response = await apiClient.patch(`/ordenes/${id}/anular`, {}, {
-                headers: { 'X-Admin-Id': adminId }
-            });
-            const resultado = response.data;
-            const exito = resultado.Success ?? resultado.success ?? resultado.Exito ?? resultado.exito;
-
-            if (exito === false) throw new Error(resultado.Message ?? resultado.mensaje);
-            return resultado;
+            const response = await apiClient.patch(`/ordenes/${id}/anular`, {}, { headers: { 'X-Admin-Id': adminId } });
+            return response.data;
         } catch (error: any) {
-            throw manejarErrorHttp(error, "No se pudo anular la orden. Verifique permisos o estado actual.");
-        }
-    },
-
-    update: async (id: number, ordenActualizada: OrdenUpdateDTO, adminId: number) => {
-        if (AppConfig.usarMocks) {
-            return new Promise((resolve) => setTimeout(() => resolve({ success: true }), 500));
-        }
-        
-        try {
-            const response = await apiClient.put(`/ordenes/${id}/actualizar`, ordenActualizada, {
-                headers: { 'X-Admin-Id': adminId }
-            });
-            const resultado = response.data;
-            const exito = resultado.Success ?? resultado.success ?? resultado.Exito ?? resultado.exito;
-
-            if (exito === false) throw new Error(resultado.Message ?? resultado.mensaje);
-            return resultado;
-        } catch (error: any) {
-            throw manejarErrorHttp(error, "Error al modificar la orden.");
+            throw manejarErrorHttp(error, "No se pudo anular la orden.");
         }
     }
 };

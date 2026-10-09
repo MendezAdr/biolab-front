@@ -3,9 +3,9 @@ import type { PagoUpdateDTO } from '../types/DTOs/PagoUpdateDTO';
 import type { PagoStandaloneCreateDTO } from '../types/DTOs/PagoStandaloneCreateDTO'; 
 
 const pagosMockData = [
-    { id: 1, ordenId: 101, monto: 50.00, metodo: 1, referencia: 'ABC123XYZ' },
-    { id: 2, ordenId: 102, monto: 75.00, metodo: 2, referencia: 'DEF456UVW' }, 
-    { id: 3, ordenId: 103, monto: 100.00, metodo: 3, referencia: 'GHI789RST' }
+    { id: 1, ordenId: 101, monto: 50.00, metodo: 1, referencia: 'ABC123XYZ', creadoPorId: 1, fechaCreacion: '2026-08-10' },
+    { id: 2, ordenId: 102, monto: 75.00, metodo: 2, referencia: 'DEF456UVW', creadoPorId: 1, fechaCreacion: '2026-08-10' }, 
+    { id: 3, ordenId: 103, monto: 100.00, metodo: 3, referencia: 'GHI789RST', creadoPorId: 1, fechaCreacion: '2026-08-10' }
 ];
 
 const manejarErrorHttp = (error: any, mensajePorDefecto: string) => {
@@ -30,13 +30,28 @@ const manejarErrorHttp = (error: any, mensajePorDefecto: string) => {
     throw new Error(mensajeBackend || error.message || mensajePorDefecto);
 };
 
+// Función para normalizar los datos de auditoría al formato que usa el componente AuditoriaFooter (camelCase estricto)
+const normalizarPago = (p: any) => ({
+    ...p,
+    id: p.id ?? p.Id,
+    ordenId: p.ordenId ?? p.OrdenId,
+    monto: p.monto ?? p.Monto,
+    metodo: p.metodo ?? p.Metodo,
+    referencia: p.referencia ?? p.Referencia,
+    // Estandarización obligatoria para auditoría
+    creadoPorId: p.creadoPorId ?? p.CreadoPorId,
+    fechaCreacion: p.fechaCreacion ?? p.FechaCreacion,
+    modificadoPorId: p.modificadoPorId ?? p.ModificadoPorId,
+    fechaModificacion: p.fechaModificacion ?? p.FechaModificacion
+});
+
 export const pagosService = {
     // --------------------------------------------------------
-    // NUEVO MÉTODO GLOBAL
+    // MÉTODOS GET
     // --------------------------------------------------------
     getAll: async () => {
         if (AppConfig.usarMocks) {
-            return new Promise((resolve) => setTimeout(() => resolve(pagosMockData), 500));
+            return new Promise((resolve) => setTimeout(() => resolve(pagosMockData.map(normalizarPago)), 500));
         }
 
         try {
@@ -48,20 +63,18 @@ export const pagosService = {
                 throw new Error(resultado.Message ?? resultado.mensaje ?? "Error al obtener historial de pagos.");
             }
 
-            return resultado.Data ?? resultado.data ?? [];
+            const datosBrutos = resultado.Data ?? resultado.data ?? [];
+            return Array.isArray(datosBrutos) ? datosBrutos.map(normalizarPago) : [];
         } catch (error: any) {
             if (error.response?.status === 404) return []; 
             throw manejarErrorHttp(error, "Fallo de conexión al cargar los pagos.");
         }
     },
-
-    // --------------------------------------------------------
-    // MÉTODOS GET RESTANTES
-    // --------------------------------------------------------
     
     getById: async (id: number) => {
         if (AppConfig.usarMocks) {
-            return new Promise((resolve) => setTimeout(() => resolve(pagosMockData.find(p => p.id === id)), 500));
+            const pago = pagosMockData.find(p => p.id === id);
+            return new Promise((resolve) => setTimeout(() => resolve(pago ? normalizarPago(pago) : null), 500));
         }
 
         try {
@@ -73,7 +86,8 @@ export const pagosService = {
                 throw new Error(resultado.Message ?? resultado.mensaje ?? "Pago no encontrado.");
             }
 
-            return resultado.Data ?? resultado.data ?? resultado.objeto ?? resultado;
+            const data = resultado.Data ?? resultado.data ?? resultado.objeto ?? resultado;
+            return normalizarPago(data);
         } catch (error: any) {
             if (error.response?.status === 404) throw new Error("El detalle del pago especificado no existe.");
             throw manejarErrorHttp(error, "Error al buscar el detalle del pago.");
@@ -82,7 +96,7 @@ export const pagosService = {
 
     getByMetodo: async (idMetodo: number) => {
         if (AppConfig.usarMocks) {
-            return new Promise((resolve) => setTimeout(() => resolve(pagosMockData.filter(p => p.metodo === idMetodo)), 500));
+            return new Promise((resolve) => setTimeout(() => resolve(pagosMockData.filter(p => p.metodo === idMetodo).map(normalizarPago)), 500));
         }
 
         try {
@@ -90,62 +104,19 @@ export const pagosService = {
             const resultado = response.data;
             const exito = resultado.Success ?? resultado.success ?? resultado.Exito ?? resultado.exito;
 
-            if (exito === false) {
-                throw new Error(resultado.Message ?? resultado.mensaje ?? "Error al obtener pagos.");
-            }
+            if (exito === false) throw new Error(resultado.Message ?? resultado.mensaje ?? "Error al obtener pagos.");
 
-            return resultado.Data ?? resultado.data ?? [];
+            const datosBrutos = resultado.Data ?? resultado.data ?? [];
+            return Array.isArray(datosBrutos) ? datosBrutos.map(normalizarPago) : [];
         } catch (error: any) {
             if (error.response?.status === 404) return []; 
             throw manejarErrorHttp(error, "Fallo de conexión al cargar los pagos por este método.");
         }
     },
 
-    getByOrden: async (ordenId: number) => {
-        if (AppConfig.usarMocks) {
-            return new Promise((resolve) => setTimeout(() => resolve(pagosMockData.filter(p => p.ordenId === ordenId)), 500));
-        }
-
-        try {
-            const response = await apiClient.get(`/pagos/orden/${ordenId}`);
-            const resultado = response.data;
-            const exito = resultado.Success ?? resultado.success ?? resultado.Exito ?? resultado.exito;
-
-            if (exito === false) {
-                throw new Error(resultado.Message ?? resultado.mensaje ?? "Error al obtener pagos de la orden.");
-            }
-
-            return resultado.Data ?? resultado.data ?? [];
-        } catch (error: any) {
-            if (error.response?.status === 404) return []; 
-            throw manejarErrorHttp(error, "Fallo de conexión al cargar los pagos de esta orden.");
-        }
-    },
-
-    getByReferencia: async (referenciaId: string) => {
-        if (AppConfig.usarMocks) {
-            return new Promise((resolve) => setTimeout(() => resolve(pagosMockData.find(p => p.referencia === referenciaId)), 500));
-        }
-
-        try {
-            const response = await apiClient.get(`/pagos/referencia/${referenciaId}`);
-            const resultado = response.data;
-            const exito = resultado.Success ?? resultado.success ?? resultado.Exito ?? resultado.exito;
-
-            if (exito === false) {
-                throw new Error(resultado.Message ?? resultado.mensaje ?? "Referencia no encontrada.");
-            }
-
-            return resultado.Data ?? resultado.data ?? resultado.objeto ?? resultado;
-        } catch (error: any) {
-            if (error.response?.status === 404) throw new Error("No existen pagos registrados bajo ese número de referencia.");
-            throw manejarErrorHttp(error, "Error al buscar el pago por número de referencia.");
-        }
-    },
-    
     getByFechas: async (fechaInicio?: Date, fechaFin?: Date) => {
         if (AppConfig.usarMocks){
-            return new Promise((resolve) => setTimeout(() => resolve(pagosMockData), 500));
+            return new Promise((resolve) => setTimeout(() => resolve(pagosMockData.map(normalizarPago)), 500));
         }
         
         try {
@@ -157,11 +128,10 @@ export const pagosService = {
             const resultado = response.data;
             const exito = resultado.Success ?? resultado.success ?? resultado.Exito ?? resultado.exito;
 
-            if (exito === false) {
-                throw new Error(resultado.Message ?? resultado.mensaje ?? "Error al obtener pagos por fecha.");
-            }
+            if (exito === false) throw new Error(resultado.Message ?? resultado.mensaje ?? "Error al obtener pagos por fecha.");
 
-            return resultado.Data ?? resultado.data ?? [];
+            const datosBrutos = resultado.Data ?? resultado.data ?? [];
+            return Array.isArray(datosBrutos) ? datosBrutos.map(normalizarPago) : [];
         } catch (error: any) {
             if (error.response?.status === 404) return []; 
             throw manejarErrorHttp(error, "Fallo de conexión al filtrar el historial de pagos.");
@@ -179,14 +149,12 @@ export const pagosService = {
         
         try {
             const response = await apiClient.post('/pagos', pago, {
-                headers: { 'X-Usuario-Id': usuarioId } // CORRECCIÓN
+                headers: { 'X-Usuario-Id': usuarioId } 
             });
             const resultado = response.data;
             const exito = resultado.Success ?? resultado.success ?? resultado.Exito ?? resultado.exito;
 
-            if (exito === false) {
-                throw new Error(resultado.Message ?? resultado.mensaje ?? "Error al procesar el pago.");
-            }
+            if (exito === false) throw new Error(resultado.Message ?? resultado.mensaje ?? "Error al procesar el pago.");
 
             return resultado;
         } catch (error: any) {
@@ -200,15 +168,15 @@ export const pagosService = {
         }
         
         try {
+            // CORRECCIÓN CLAVE: Pasamos el 'usuarioId' por el HEADER, tal como lo espera C# [FromHeader]
             const response = await apiClient.put(`/pagos/${id}`, pagoActualizado, {
-                headers: { 'X-Usuario-Id': usuarioId } // CORRECCIÓN
+                headers: { 'X-Usuario-Id': usuarioId } 
             });
+            
             const resultado = response.data;
             const exito = resultado.Success ?? resultado.success ?? resultado.Exito ?? resultado.exito;
 
-            if (exito === false) {
-                throw new Error(resultado.Message ?? resultado.mensaje ?? "Error al modificar el pago.");
-            }
+            if (exito === false) throw new Error(resultado.Message ?? resultado.mensaje ?? "Error al modificar el pago.");
 
             return resultado;
         } catch (error: any) {
@@ -223,14 +191,12 @@ export const pagosService = {
         
         try {
             const response = await apiClient.delete(`/pagos/${id}`, {
-                headers: { 'X-Usuario-Id': usuarioId } // CORRECCIÓN
+                headers: { 'X-Usuario-Id': usuarioId }
             });
             const resultado = response.data;
             const exito = resultado.Success ?? resultado.success ?? resultado.Exito ?? resultado.exito;
 
-            if (exito === false) {
-                throw new Error(resultado.Message ?? resultado.mensaje ?? "Error al anular el pago.");
-            }
+            if (exito === false) throw new Error(resultado.Message ?? resultado.mensaje ?? "Error al anular el pago.");
 
             return resultado;
         } catch (error: any) {

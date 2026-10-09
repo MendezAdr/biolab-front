@@ -15,7 +15,7 @@ export function PanelBienvenida({ usuarioNombre, metricas }: PanelBienvenidaProp
   if (!metricas) return null;
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-10">
+    <div className="space-y-6 max-w-7xl mx-auto pb-10 bg-sky-200">
       
       {/* 1. CABECERA Y SALUDO (Hero Banner con Imagen de Fondo) */}
       <div 

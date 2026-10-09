@@ -2,20 +2,19 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast, { Toaster } from 'react-hot-toast'; 
 import { examenesService } from '../../services/examenesService';
-import { tasaService } from '../../services/tasaService';
 import type { Examen } from '../../types/ExamenModel';
 
 import { useAuth } from '../../context/AuthContext';
 import { PERMISOS } from '../../types/AuthTypes';
 
 export function PanelPresupuestos() {
-  const { tienePermiso } = useAuth();
+  // 1. INYECTAMOS LA TASA DIRECTAMENTE DESDE EL CONTEXTO GLOBAL
+  const { tienePermiso, tasaBcv } = useAuth();
   
   const puedeCrearOrden = tienePermiso(PERMISOS.CREAR_ORDENES_Y_DETALLES);
   const puedeGestionarPresupuestos = tienePermiso(PERMISOS.GESTIONAR_PRESUPUESTOS);
 
   const [examenesBD, setExamenesBD] = useState<Examen[]>([]);
-  const [tasaBcv, setTasaBcv] = useState<number>(0);
   const [cargando, setCargando] = useState(true);
   
   // DATOS DEL CLIENTE (Texto libre, sin forzar registro en BD)
@@ -33,12 +32,9 @@ export function PanelPresupuestos() {
       const cargarDatos = async () => {
         try {
           setCargando(true);
-          const [examenesRes, tasaRes] = await Promise.all([
-            examenesService.getAll(),
-            tasaService.getTasaActual()
-          ]);
+          // 2. YA NO PEDIMOS LA TASA AL BACKEND
+          const examenesRes = await examenesService.getAll();
           setExamenesBD(examenesRes || []);
-          setTasaBcv(tasaRes || 0);
         } catch (err) {
           toast.error("Error al cargar catálogo para presupuestos.");
         } finally {
@@ -84,7 +80,12 @@ export function PanelPresupuestos() {
   
   const convertirAOrden = () => {
     if (carrito.length === 0) return;
-    navigate('/nueva-orden', { state: { examenesPreCargados: carrito } });
+    navigate('/nueva-orden', { 
+        state: { 
+            examenesPreCargados: carrito,
+            cedulaPreCargada: cedulaCliente 
+        } 
+    });
   };
 
   const enviarAImpresion = () => {
@@ -93,7 +94,6 @@ export function PanelPresupuestos() {
       return;
     }
     
-    // Armamos el payload con la estructura exacta que espera el PresupuestoPDF
     const paqueteImpresion = {
       tipoDocumento: 'presupuesto',
       datos: {
@@ -129,7 +129,6 @@ export function PanelPresupuestos() {
     <div className="max-w-6xl mx-auto space-y-6 p-4">
       <Toaster position="bottom-right" reverseOrder={false} />
       
-      {/* CABECERA PRINCIPAL (Añadida para coherencia visual) */}
       <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-sky-100 shadow-sm">
         <div>
           <h2 className="text-xl font-bold text-sky-900">Generador de Presupuestos</h2>
@@ -143,7 +142,6 @@ export function PanelPresupuestos() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* COLUMNA IZQUIERDA: BÚSQUEDA Y CATÁLOGO */}
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white p-5 rounded-xl border border-sky-100 shadow-sm">
             <h3 className="font-bold text-sky-900 mb-4 border-b border-sky-50 pb-2">Selección de Exámenes</h3>
@@ -194,7 +192,6 @@ export function PanelPresupuestos() {
           </div>
         </div>
 
-        {/* COLUMNA DERECHA: DATOS DEL CLIENTE, CARRITO Y TOTALES */}
         <div className="lg:col-span-1">
           <div className="bg-sky-900 text-white p-6 rounded-xl shadow-xl border border-sky-800 sticky top-6">
             <h3 className="font-bold text-lg mb-4 border-b border-sky-700 pb-3 flex items-center">

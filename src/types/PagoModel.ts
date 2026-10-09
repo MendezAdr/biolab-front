@@ -4,6 +4,10 @@ export interface Pago {
     monto: number;
     metodo: number;
     referencia: string;
+    creadoPor: number;
+    fechaCreacion: string;
+    modificadoPor?: number;
+    fechaModificacion?: string;
 }
 
 export const PagoMetodo =  [

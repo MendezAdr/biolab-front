@@ -30,13 +30,17 @@ export function HomePage() {
   }, [currentUserId]);
 
   if (cargando) {
-    return <div className="flex h-[80vh] items-center justify-center text-slate-500 animate-pulse font-medium">Cargando panel de control...</div>;
+    return <div className="flex h-[80vh] items-center justify-center bg-sky-200 text-slate-500 animate-pulse font-medium">Cargando panel de control...</div>;
   }
 
   return (
-    <PanelBienvenida 
-      usuarioNombre={nombreUsuario} 
-      metricas={metricas} 
-    />
+    <div className='bg-sky-200/50'>
+      <PanelBienvenida 
+        usuarioNombre={nombreUsuario} 
+        metricas={metricas} 
+        
+      />
+
+    </div>
   );
 }

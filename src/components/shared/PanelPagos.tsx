@@ -22,9 +22,15 @@ export function PanelPagos() {
   const [modalAbierto, setModalAbierto] = useState(false);
   const [pagoAEditar, setPagoAEditar] = useState<Pago | null>(null);
 
-  // ESTADOS PARA BÚSQUEDA Y ORDENAMIENTO
+  // ESTADOS DE FILTRADO Y ORDENAMIENTO
   const [terminoBusqueda, setTerminoBusqueda] = useState('');
+  const [fechaFiltroInicio, setFechaFiltroInicio] = useState('');
+  const [fechaFiltroFin, setFechaFiltroFin] = useState('');
   const [configuracionOrden, setConfiguracionOrden] = useState<{ campo: string, direccion: 'asc' | 'desc' } | null>(null);
+
+  // ESTADOS DE PAGINACIÓN
+  const [paginaActual, setPaginaActual] = useState(1);
+  const [limitePorPagina, setLimitePorPagina] = useState(20);
 
   const cargarPagos = async () => {
     try {
@@ -47,6 +53,11 @@ export function PanelPagos() {
       setCargando(false);
     }
   }, [puedeGestionarPagos]);
+
+  // Si cambia algún filtro, regresamos a la página 1
+  useEffect(() => {
+    setPaginaActual(1);
+  }, [terminoBusqueda, fechaFiltroInicio, fechaFiltroFin, limitePorPagina, configuracionOrden]);
 
   const abrirModalCrear = () => {
     setPagoAEditar(null);
@@ -90,9 +101,6 @@ export function PanelPagos() {
     );
   };
 
-  // ------------------------------------------------------------------
-  // LÓGICA DE PROCESAMIENTO (BÚSQUEDA Y ORDENAMIENTO)
-  // ------------------------------------------------------------------
   const manejarOrden = (campo: string) => {
     let direccion: 'asc' | 'desc' = 'asc';
     if (configuracionOrden && configuracionOrden.campo === campo && configuracionOrden.direccion === 'asc') {
@@ -103,13 +111,22 @@ export function PanelPagos() {
 
   const resetearFiltros = () => {
     setTerminoBusqueda('');
+    setFechaFiltroInicio('');
+    setFechaFiltroFin('');
     setConfiguracionOrden(null);
+    setPaginaActual(1);
+  };
+
+  const formatearFecha = (fechaString: any) => {
+    if (!fechaString) return '---';
+    const obj = new Date(fechaString);
+    return isNaN(obj.getTime()) ? '---' : obj.toLocaleString();
   };
 
   const pagosProcesados = useMemo(() => {
     let datos = [...listaPagos];
 
-    // 1. Filtrado por Búsqueda
+    // 1. Filtrado por Búsqueda (Texto)
     if (terminoBusqueda) {
       const busquedaLower = terminoBusqueda.toLowerCase();
       datos = datos.filter(pago => {
@@ -123,17 +140,44 @@ export function PanelPagos() {
       });
     }
 
-    // 2. Ordenamiento de Columnas
+    // 2. Filtrado por Fechas
+    if (fechaFiltroInicio || fechaFiltroFin) {
+      datos = datos.filter(pago => {
+        const fechaString = pago.fechaCreacion ?? (pago as any).FechaCreacion;
+        if (!fechaString) return true; 
+
+        const fechaObj = new Date(fechaString);
+        let pasaFiltro = true;
+
+        if (fechaFiltroInicio) {
+          const fInicio = new Date(fechaFiltroInicio + 'T00:00:00');
+          if (fechaObj < fInicio) pasaFiltro = false;
+        }
+
+        if (fechaFiltroFin) {
+          const fFin = new Date(fechaFiltroFin + 'T23:59:59');
+          if (fechaObj > fFin) pasaFiltro = false;
+        }
+
+        return pasaFiltro;
+      });
+    }
+
+    // 3. Ordenamiento de Columnas
     if (configuracionOrden) {
       datos.sort((a, b) => {
         const { campo, direccion } = configuracionOrden;
         
-        // Soporte camelCase y PascalCase
         let valorA = (a as any)[campo] ?? (a as any)[campo.charAt(0).toUpperCase() + campo.slice(1)];
         let valorB = (b as any)[campo] ?? (b as any)[campo.charAt(0).toUpperCase() + campo.slice(1)];
 
-        if (typeof valorA === 'string') valorA = valorA.toLowerCase();
-        if (typeof valorB === 'string') valorB = valorB.toLowerCase();
+        if (campo === 'fechaCreacion') {
+           valorA = new Date(valorA ?? 0).getTime();
+           valorB = new Date(valorB ?? 0).getTime();
+        } else {
+           if (typeof valorA === 'string') valorA = valorA.toLowerCase();
+           if (typeof valorB === 'string') valorB = valorB.toLowerCase();
+        }
 
         if (valorA < valorB) return direccion === 'asc' ? -1 : 1;
         if (valorA > valorB) return direccion === 'asc' ? 1 : -1;
@@ -141,8 +185,24 @@ export function PanelPagos() {
       });
     }
 
+    // Ordenamiento por defecto: más recientes primero (si no hay un filtro de orden activo)
+    if (!configuracionOrden) {
+        datos.sort((a, b) => {
+            const fechaA = new Date(a.fechaCreacion ?? (a as any).FechaCreacion ?? 0).getTime();
+            const fechaB = new Date(b.fechaCreacion ?? (b as any).FechaCreacion ?? 0).getTime();
+            return fechaB - fechaA;
+        });
+    }
+
     return datos;
-  }, [listaPagos, terminoBusqueda, configuracionOrden]);
+  }, [listaPagos, terminoBusqueda, fechaFiltroInicio, fechaFiltroFin, configuracionOrden]);
+
+  // PAGINACIÓN CÁLCULOS
+  const totalPaginas = Math.max(1, Math.ceil(pagosProcesados.length / limitePorPagina));
+  const pagosPaginados = pagosProcesados.slice(
+    (paginaActual - 1) * limitePorPagina,
+    paginaActual * limitePorPagina
+  );
 
   const indicadorOrden = (campo: string) => {
     if (configuracionOrden?.campo === campo) {
@@ -151,7 +211,6 @@ export function PanelPagos() {
     return null;
   };
 
-  // PANTALLA DE RESTRICCIÓN DE ACCESO[cite: 40]
   if (!puedeGestionarPagos) {
     return (
       <div className="flex flex-col items-center justify-center p-12 bg-white border border-sky-100 rounded-xl shadow-sm mx-auto max-w-2xl mt-12 text-center">
@@ -174,7 +233,7 @@ export function PanelPagos() {
   );
 
   return (
-    <div className="space-y-6 p-2 max-w-6xl mx-auto">
+    <div className="space-y-6 p-2 max-w-7xl mx-auto">
       <Toaster position="bottom-right" reverseOrder={false} />
       
       {/* CABECERA PRINCIPAL */}
@@ -195,42 +254,66 @@ export function PanelPagos() {
         </div>
       </div>
 
-      {/* CONTENEDOR INTEGRADO: BARRA DE BÚSQUEDA + TABLA */}
       <div className="bg-white border border-sky-100 text-slate-700 rounded-xl overflow-hidden shadow-sm">
         
-        {/* BARRA DE HERRAMIENTAS (TOOLBAR) INCRUSTADA */}
-        <div className="p-4 border-b border-sky-50 bg-sky-50/30 flex flex-col md:flex-row gap-4 justify-between items-center">
-          <div className="w-full md:w-96 relative">
+        {/* BARRA DE HERRAMIENTAS (BÚSQUEDA Y FECHAS) */}
+        <div className="p-4 border-b border-sky-50 bg-sky-50/30 flex flex-col xl:flex-row gap-4 justify-between items-center">
+          
+          <div className="w-full xl:w-96 relative">
             <input 
               type="text" 
-              placeholder="Buscar por ID de Pago, Orden o Referencia..."
+              placeholder="Buscar ID de Pago, Orden o Referencia..."
               value={terminoBusqueda}
               onChange={(e) => setTerminoBusqueda(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-shadow"
             />
             <span className="absolute left-3 top-2 text-slate-400 text-lg">🔍</span>
           </div>
+
+          <div className="flex w-full xl:w-auto flex-col sm:flex-row gap-3 items-center">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+                <span className="text-xs font-bold text-sky-800 uppercase tracking-wider">Desde:</span>
+                <input 
+                  type="date" 
+                  value={fechaFiltroInicio}
+                  onChange={(e) => setFechaFiltroInicio(e.target.value)}
+                  className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-sky-500 transition-shadow"
+                />
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+                <span className="text-xs font-bold text-sky-800 uppercase tracking-wider">Hasta:</span>
+                <input 
+                  type="date" 
+                  value={fechaFiltroFin}
+                  onChange={(e) => setFechaFiltroFin(e.target.value)}
+                  className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-sky-500 transition-shadow"
+                />
+            </div>
+          </div>
           
-          {(terminoBusqueda || configuracionOrden) && (
+          {(terminoBusqueda || fechaFiltroInicio || fechaFiltroFin || configuracionOrden) && (
             <button 
               onClick={resetearFiltros}
               className="px-4 py-2 text-sm text-rose-500 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-colors font-bold whitespace-nowrap"
             >
-              ✕ Limpiar Filtros
+              ✕ Limpiar
             </button>
           )}
         </div>
 
-        {/* TABLA */}
-        <div className="overflow-x-auto">
+        {/* TABLA PRINCIPAL */}
+        <div className="overflow-x-auto min-h-[400px]">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-white text-sky-800 text-xs font-bold uppercase tracking-wider border-b border-sky-100 select-none">
                 <th onClick={() => manejarOrden('id')} className="p-4 cursor-pointer hover:bg-sky-50 transition-colors">
-                  ID Pago {indicadorOrden('id')}
+                  ID {indicadorOrden('id')}
+                </th>
+                <th onClick={() => manejarOrden('fechaCreacion')} className="p-4 cursor-pointer hover:bg-sky-50 transition-colors">
+                  Fecha y Hora {indicadorOrden('fechaCreacion')}
                 </th>
                 <th onClick={() => manejarOrden('ordenId')} className="p-4 cursor-pointer hover:bg-sky-50 transition-colors">
-                  Orden (Factura) {indicadorOrden('ordenId')}
+                  Orden {indicadorOrden('ordenId')}
                 </th>
                 <th onClick={() => manejarOrden('metodo')} className="p-4 cursor-pointer hover:bg-sky-50 transition-colors">
                   Método {indicadorOrden('metodo')}
@@ -241,19 +324,20 @@ export function PanelPagos() {
                 <th onClick={() => manejarOrden('monto')} className="p-4 text-right cursor-pointer hover:bg-sky-50 transition-colors">
                   Monto (USD) {indicadorOrden('monto')}
                 </th>
-                <th className="p-4 text-center">Acciones (Admin)</th>
+                <th className="p-4 text-center">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-              {pagosProcesados.length === 0 ? (
+              {pagosPaginados.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-12 text-center text-slate-500 bg-slate-50/50 italic">
-                    No se encontraron registros de pagos con los filtros actuales.
+                  <td colSpan={7} className="p-16 text-center text-slate-500 bg-slate-50/50 italic">
+                    No se encontraron pagos con los filtros y fechas establecidas.
                   </td>
                 </tr>
               ) : (
-                pagosProcesados.map((pago) => {
+                pagosPaginados.map((pago) => {
                   const id = pago.id ?? (pago as any).Id;
+                  const fecha = pago.fechaCreacion ?? (pago as any).FechaCreacion;
                   const ordenId = pago.ordenId ?? (pago as any).OrdenId;
                   const metodo = pago.metodo ?? (pago as any).Metodo;
                   const referencia = pago.referencia ?? (pago as any).Referencia;
@@ -264,9 +348,10 @@ export function PanelPagos() {
                   return (
                     <tr key={id} className="hover:bg-sky-50/50 transition-colors">
                       <td className="p-4 font-mono font-bold text-slate-400">#{id}</td>
-                      <td className="p-4 font-bold text-sky-700">ORD-{ordenId}</td>
+                      <td className="p-4 text-slate-500 text-xs font-medium">{formatearFecha(fecha)}</td>
+                      <td className="p-4 font-bold text-sky-700 hover:underline cursor-pointer" title="ID de Factura Interna">ORD-{ordenId}</td>
                       <td className="p-4">
-                        <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded text-xs font-bold border border-emerald-100 uppercase tracking-wider">
+                        <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded text-[10px] font-bold border border-emerald-100 uppercase tracking-wider">
                           {nombreMetodo}
                         </span>
                       </td>
@@ -274,7 +359,7 @@ export function PanelPagos() {
                       <td className="p-4 font-black text-emerald-600 text-right">${monto}</td>
                       <td className="p-4 text-center space-x-2">
                         
-                        <div className="inline-block" title={!puedeGestionarPagos ? "Sin permisos para corregir pagos." : ""}>
+                        <div className="inline-block" title={!puedeGestionarPagos ? "Sin permisos." : ""}>
                           <button 
                             onClick={() => abrirModalEditar(pago)} 
                             disabled={!puedeGestionarPagos}
@@ -284,7 +369,7 @@ export function PanelPagos() {
                           </button>
                         </div>
 
-                        <div className="inline-block" title={!puedeGestionarPagos ? "Sin permisos para anular pagos." : ""}>
+                        <div className="inline-block" title={!puedeGestionarPagos ? "Sin permisos." : ""}>
                           <button 
                             onClick={() => anularPago(id)} 
                             disabled={!puedeGestionarPagos}
@@ -302,6 +387,51 @@ export function PanelPagos() {
             </tbody>
           </table>
         </div>
+        
+        {/* PIE DE PAGINACIÓN */}
+        {pagosProcesados.length > 0 && (
+          <div className="p-4 border-t border-sky-50 bg-slate-50 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="text-xs text-slate-500 font-medium">
+              Mostrando <span className="font-bold text-sky-800">{pagosPaginados.length}</span> de <span className="font-bold text-sky-800">{pagosProcesados.length}</span> pagos encontrados
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setPaginaActual(p => Math.max(1, p - 1))}
+                disabled={paginaActual === 1}
+                className="px-3 py-1.5 text-xs font-bold rounded bg-white border border-slate-300 text-slate-600 hover:bg-sky-50 hover:text-sky-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Anterior
+              </button>
+              
+              <span className="px-4 py-1 text-sm font-bold text-sky-900 bg-sky-100 rounded-md">
+                Pág {paginaActual} / {totalPaginas}
+              </span>
+              
+              <button 
+                onClick={() => setPaginaActual(p => Math.min(totalPaginas, p + 1))}
+                disabled={paginaActual === totalPaginas}
+                className="px-3 py-1.5 text-xs font-bold rounded bg-white border border-slate-300 text-slate-600 hover:bg-sky-50 hover:text-sky-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Siguiente
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500 font-medium">Límites:</span>
+              <select 
+                value={limitePorPagina} 
+                onChange={(e) => setLimitePorPagina(Number(e.target.value))}
+                className="border border-slate-300 rounded px-2 py-1 text-xs font-bold text-slate-700 focus:outline-none focus:border-sky-500 bg-white"
+              >
+                <option value={10}>10 por pág</option>
+                <option value={20}>20 por pág</option>
+                <option value={50}>50 por pág</option>
+                <option value={100}>100 por pág</option>
+              </select>
+            </div>
+          </div>
+        )}
       </div>
 
       <ModalRegistroPago 
